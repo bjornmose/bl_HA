@@ -1,0 +1,8 @@
+Was ist das?
+
+Für Mathematiker:
+    Ein verstümmelte Fourrier Transformation
+    
+Für Anwender:
+    Untersuche den Pfad eines Objects auf wiederkehrende Muster
+
