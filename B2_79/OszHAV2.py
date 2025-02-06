@@ -1013,9 +1013,12 @@ class LissajousPanel(bpy.types.Panel):
     """Creates a Panel in the Object properties window"""
     bl_label = "LissajousPanel"
     bl_idname = "OBJECT_PT_LISSAJOUSGP"
-    bl_space_type = 'PROPERTIES'
-    bl_region_type = 'WINDOW'
+    #bl_space_type = 'PROPERTIES'
+    #bl_region_type = 'WINDOW'
     bl_context = "object"
+    bl_space_type = 'VIEW_3D'
+    bl_region_type = 'UI'
+    
 
     @classmethod
     def poll(cls, context):
