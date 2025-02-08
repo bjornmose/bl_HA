@@ -42,6 +42,7 @@ from BVT import *
 #nCCos2       = "[2]Cos(2t)" 
 nIDHAWatch    = "IDHAWatch"
 nHA_Damp      = "HA_Damp"
+nHA_Loops     = "HA_Loops"
 nHA_Frames    = "HA_Frames"
 nControlRoot = "ControlRoot"
 nCSin1       = "CSin1"
@@ -80,6 +81,17 @@ nClock       = "Osz_Clock"
 nDefaultPeriod =2*2*3*5*7
 
 nControlDefaultDefaultShape = "SPHERE"
+
+def _runCycleOnce():
+    start = bpy.context.scene.frame_start
+    end = bpy.context.scene.frame_end
+    obj = bpy.context.active_object
+    actual = start
+    bpy.context.scene.frame_set(actual)
+    while (actual < end + 1):
+     #print("actual:",actual)
+     bpy.context.scene.frame_set(actual)
+     actual += 1
 
 
 def oszUniqueName(namein):
@@ -968,6 +980,32 @@ class op_Enable_Watch(Operator):
             sce[nHA_Frames] = 2*2*4*5*7
         return {'FINISHED'}
         
+class op_HA_Integrate(Operator):
+    """Makes watch option available"""
+    #bl_idname no upper Case allowed!
+    bl_idname = "object.op_haintegate"
+    bl_label = "Integate"
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object is not None
+
+    def execute(self, context):
+        sce = bpy.context.scene
+        sce[nHA_Damp] = 1.
+        try:
+          nof_loops = sce[nHA_Loops]
+        except:
+          nof_loops = 20
+          sce[nHA_Loops] = nof_loops
+
+
+
+        for loop in range (1 , nof_loops+1):
+            print("HA_Integratin loop",loop)
+            _runCycleOnce()
+            sce[nHA_Damp] = loop
+        return {'FINISHED'}
         
 
         
@@ -1006,6 +1044,9 @@ class HA_Panel(bpy.types.Panel):
         row = layout.row()
         row.operator("object.op_osz2json")
         row.operator("object.op_json2osz")
+        row = layout.row()
+        row.prop(sce, '["%s"]' % (nHA_Loops),text="Loops") 
+        row.operator("object.op_haintegate",text='Integate brute force')
 
 
 
@@ -1133,6 +1174,7 @@ _myclasses = (
               op_json2Osz,
               op_osz_hook_ha,
               op_Enable_Watch,
+              op_HA_Integrate,
               copyoszoperator,
               copyoszoperatorto,
               SetAmpAll,
@@ -1152,7 +1194,7 @@ def register():
 def unregister():
     for cls in _myclasses :
         bpy.utils.unregister_class(cls)
-    print("Unregistered OszAxis .. ")
+    print("Unregistered OszHAV2 .. ")
 
 #run from run
 if __name__ == "__main__":
@@ -1164,4 +1206,4 @@ if __name__ == "__main__":
 else:
     register()
     GenControl('')
-    print('Osz Avis V xxx register done')
+    print('OszHYV2 register done')
