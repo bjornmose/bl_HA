@@ -246,6 +246,18 @@ def _osz_hook_HA(consumer,IDwatched):
     add_driverCumHaFi(cso,'cos',2,2 ,IDwatched)
 
 
+def _osz_unhook_HA(consumer):
+    name = consumer.name
+    pp=name.partition(nControlRoot)
+    prefix = pp[0]
+    cso = bpy.data.objects.get(prefix+nCSin1)
+    cso.driver_remove('location')
+    cso = bpy.data.objects.get(prefix+nCCos1)
+    cso.driver_remove('location')
+    cso = bpy.data.objects.get(prefix+nCSin2)
+    cso.driver_remove('location')
+    cso = bpy.data.objects.get(prefix+nCCos2)
+    cso.driver_remove('location')
 
 
 class op_osz_hook_ha(bpy.types.Operator):
@@ -256,6 +268,16 @@ class op_osz_hook_ha(bpy.types.Operator):
         obj = context.object
         obsname=obj[nIDHAWatch]
         _osz_hook_HA(obj,obsname)
+        return{'FINISHED'}
+
+class op_osz_unhook_ha(bpy.types.Operator):
+    bl_idname = "object.removehookdriveroperator"
+    bl_label = "RemoveWatchkDriver"
+
+    def execute(self,context):
+        obj = context.object
+        obsname=obj[nIDHAWatch]
+        _osz_unhook_HA(obj)
         return{'FINISHED'}
     
  
@@ -973,7 +995,7 @@ class op_Enable_Watch(Operator):
         try:
             v = sce[nHA_Damp]
         except:
-            sce[nHA_Damp] = 1.
+            sce[nHA_Damp] = 1.4
         try:
             v = sce[nHA_Frames]
         except:
@@ -1038,6 +1060,7 @@ class HA_Panel(bpy.types.Panel):
                 row = layout.row()
                 row.prop(obj, '["%s"]' % (nIDHAWatch),text="Watch") 
                 row.operator("object.addhookdriveroperator")
+ 
         except:
                 row.label('NoWatcher') 
                 row.operator("object.op_enable_watch")
@@ -1047,6 +1070,7 @@ class HA_Panel(bpy.types.Panel):
         row = layout.row()
         row.prop(sce, '["%s"]' % (nHA_Loops),text="Loops") 
         row.operator("object.op_haintegate",text='Integate brute force')
+        row.operator("object.removehookdriveroperator",text='UnHookDrivers')
 
 
 
@@ -1173,6 +1197,7 @@ _myclasses = (
               op_osz2Json,
               op_json2Osz,
               op_osz_hook_ha,
+              op_osz_unhook_ha,
               op_Enable_Watch,
               op_HA_Integrate,
               copyoszoperator,
