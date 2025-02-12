@@ -45,6 +45,8 @@ nHA_Damp      = "HA_Damp"
 nHA_Loops     = "HA_Loops"
 nHA_Frames    = "HA_Frames"
 nControlRoot = "ControlRoot"
+nHASin        = "HASin"
+nHACos        = "HACos" 
 nCSin1       = "CSin1"
 nCCos1       = "CCos1" 
 nCSin2       = "CSin2"
@@ -386,7 +388,35 @@ def GenControl(ID):
          obj.parent = Cobj
      print(ID+"GenControl Done")
      return(Cobj)
+
+def GenHAControl(ID,nOrder):
+     w_empty_draw_size = 1
+     OName =ID+'HA'+nControlRoot
+     Cobj = bpy.data.objects.get(OName)
+     if (not Cobj):
+         Cobj = createEmpty(OName,w_empty_draw_size,nControlDefaultDefaultShape )
+         Cobj[nFrames] = nDefaultPeriod 
+         Cobj[nShift] = 0.0
+         Cobj[nAmplitude] = 1.0
+         
+     for order in range(1,nOrder+1):
+        OName ="{:}{:}{:}".format(ID,nHASin,order)
+        print(OName)
+        obj = bpy.data.objects.get(OName)
+        if (not obj):
+         obj = createEmpty(OName,w_empty_draw_size,'ARROWS')
+         obj.parent = Cobj
+        OName ="{:}{:}{:}".format(ID,nHACos,order)
+        print(OName)
+        obj = bpy.data.objects.get(OName)
+        if (not obj):
+         obj = createEmpty(OName,w_empty_draw_size,'ARROWS')
+         obj.parent = Cobj
+
+     return(Cobj)
      
+
+
 def add_driverOsc(source, index ,ID):
     d = source.driver_add( 'location', index ).driver
     d.expression = "oscAxisID(frame,"+str(index)+",'"+ID+"')" 
@@ -995,7 +1025,7 @@ class op_Enable_Watch(Operator):
         try:
             v = sce[nHA_Damp]
         except:
-            sce[nHA_Damp] = 1.4
+            sce[nHA_Damp] = 1.
         try:
             v = sce[nHA_Frames]
         except:
@@ -1231,4 +1261,5 @@ if __name__ == "__main__":
 else:
     register()
     GenControl('')
+    GenHAControl('',5)
     print('OszHYV2 register done')
