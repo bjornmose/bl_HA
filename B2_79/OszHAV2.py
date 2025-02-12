@@ -47,6 +47,7 @@ nHA_Frames    = "HA_Frames"
 nControlRoot = "ControlRoot"
 nHASin        = "HASin"
 nHACos        = "HACos" 
+nHAOrder      = "HAOrder" 
 nCSin1       = "CSin1"
 nCCos1       = "CCos1" 
 nCSin2       = "CSin2"
@@ -107,7 +108,6 @@ def oscAxisID(t,axis,ID):
     obj = bpy.data.objects.get(ID+nControlRoot)
     if (not obj):
         return 0
-#        GenControl(ID)
     try:
      frames =  obj[nFrames]
     except: 
@@ -156,7 +156,6 @@ def oscAxisIDe(t,axis,ID):
     obj = bpy.data.objects.get(ID+nControlRoot)
     if (not obj):
         return 0
-#        GenControl(ID)
     try:
      frames =  obj[nFrames]
     except: 
@@ -195,6 +194,50 @@ def oscAxisIDe(t,axis,ID):
     d = obj.location[axis]
     v = amp * (a  * sin(f) + b * cos(f) + c * sin(2*f) + d * cos(2*f))
     return v
+
+def drv_HAAxisID(t,axis,ID):
+    obj = bpy.data.objects.get(ID+nControlRoot)
+    if (not obj):
+        return 0
+    try:
+     frames =  obj[nFrames]
+    except: 
+     frames = nDefaultPeriod 
+    try:
+     shift  =  obj[nShift] 
+    except: 
+     shift = 0.0
+    try:
+     amp = obj[nAmplitude] 
+    except: 
+     amp = 1.0
+    try:
+     nOrder = obj[nHAOrder] 
+    except: 
+     nOrder = 3.0
+     
+    try:
+        now = obj[nClock] 
+    except: 
+        p = obj.parent
+        try:
+            now = p[nClock] 
+        except:
+            now = t
+
+    timebase = frames/(2*math.pi)
+    f=(now+shift)/timebase
+    val = 0
+    for o in range(1,nOrder+1):        
+        OName ="{:}{:}{:}".format(ID,nHASin,o)
+        obj = bpy.data.objects.get(OName)
+        a = obj.location[axis]
+        val = val + a * sin(o*f)
+        OName ="{:}{:}{:}".format(ID,nHACos,o)
+        obj = bpy.data.objects.get(OName)
+        a = obj.location[axis]
+        val = val + a * cos(o*f)
+    return val
 
 def drv_cumHaFi(axis,fu,n,ID,t,v):
     #calculate base fequency
@@ -391,23 +434,21 @@ def GenControl(ID):
 
 def GenHAControl(ID,nOrder):
      w_empty_draw_size = 1
-     OName =ID+'HA'+nControlRoot
+     OName =ID+nControlRoot
      Cobj = bpy.data.objects.get(OName)
      if (not Cobj):
          Cobj = createEmpty(OName,w_empty_draw_size,nControlDefaultDefaultShape )
          Cobj[nFrames] = nDefaultPeriod 
          Cobj[nShift] = 0.0
          Cobj[nAmplitude] = 1.0
-         
+     Cobj[nHAOrder] = nOrder
      for order in range(1,nOrder+1):
         OName ="{:}{:}{:}".format(ID,nHASin,order)
-        print(OName)
         obj = bpy.data.objects.get(OName)
         if (not obj):
          obj = createEmpty(OName,w_empty_draw_size,'ARROWS')
          obj.parent = Cobj
         OName ="{:}{:}{:}".format(ID,nHACos,order)
-        print(OName)
         obj = bpy.data.objects.get(OName)
         if (not obj):
          obj = createEmpty(OName,w_empty_draw_size,'ARROWS')
@@ -415,6 +456,12 @@ def GenHAControl(ID,nOrder):
 
      return(Cobj)
      
+
+
+def AddHAdriver(source,ID):
+    for n in range(3):
+        d = source.driver_add( 'location', n ).driver
+        d.expression = "drv_HAAxisID(frame,"+str(n)+",'"+ID+"')" 
 
 
 def add_driverOsc(source, index ,ID):
@@ -626,6 +673,24 @@ class AddRotOszDriverOperator(bpy.types.Operator):
         return {'FINISHED'}
     
 
+class EmbedInHAOperator(bpy.types.Operator):
+    #bl_idname no upper Case allowed!
+    bl_idname = "object.embedinhaoperator"
+    bl_label = "MakeHAChild"
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object is not None
+
+    def execute(self, context):
+        obj = context.object
+        name = obj.name
+        pobj = GenHAControl(name,5)
+        pobj.location = obj.location
+        obj.parent = pobj
+        AddHAdriver(obj,name)
+        return {'FINISHED'}
+
 class EmbedInOszOperator(bpy.types.Operator):
     #bl_idname no upper Case allowed!
     bl_idname = "object.embedinoszoperator"
@@ -638,11 +703,6 @@ class EmbedInOszOperator(bpy.types.Operator):
     def execute(self, context):
         obj = context.object
         name = obj.name
-        """
-        pp=obj.name.partition(nControlRoot)
-        if (len(pp[1])>0):
-            name = pp[0] + 'I'+nControlRoot
-        """
         pobj = GenControl(name)
         pobj.location = obj.location
         obj.parent = pobj
@@ -1201,6 +1261,7 @@ class CycleGenPanel(bpy.types.Panel):
          c_test = OszControl
          b_result = c_test.objIsOsz(obj)
          if (not b_result):
+             row.operator("object.embedinhaoperator")
              row.operator("object.embedinoszoperator")
              row.operator("object.addoszdriveroperator")
              row.operator("object.adrotdoszdriveroperator")
@@ -1220,6 +1281,7 @@ _myclasses = (
               SetLissajous,
               GetLissajous,
               EmbedInOszOperator,
+              EmbedInHAOperator,
               AddOszDriverOperator,
               AddRotOszDriverOperator,
               OpUpdateOszDriverProps,
@@ -1242,6 +1304,7 @@ def register():
     bpy.app.driver_namespace["oscAxisID"] = oscAxisID
     bpy.app.driver_namespace["oscAxisIDe"] = oscAxisIDe
     bpy.app.driver_namespace["drv_cumHaFi"] = drv_cumHaFi
+    bpy.app.driver_namespace["drv_HAAxisID"] = drv_HAAxisID
     for cls in _myclasses :
         bpy.utils.register_class(cls)
 
