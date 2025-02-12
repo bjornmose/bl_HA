@@ -45,6 +45,8 @@ nHA_Damp      = "HA_Damp"
 nHA_Loops     = "HA_Loops"
 nHA_Frames    = "HA_Frames"
 nControlRoot = "ControlRoot"
+nHARoot      = "HARoot"
+
 nHASin        = "HASin"
 nHACos        = "HACos" 
 nHAOrder      = "HAOrder" 
@@ -196,7 +198,7 @@ def oscAxisIDe(t,axis,ID):
     return v
 
 def drv_HAAxisID(t,axis,ID):
-    obj = bpy.data.objects.get(ID+nControlRoot)
+    obj = bpy.data.objects.get(ID+nHARoot)
     if (not obj):
         return 0
     try:
@@ -434,7 +436,7 @@ def GenControl(ID):
 
 def GenHAControl(ID,nOrder):
      w_empty_draw_size = 1
-     OName =ID+nControlRoot
+     OName =ID+nHARoot
      Cobj = bpy.data.objects.get(OName)
      if (not Cobj):
          Cobj = createEmpty(OName,w_empty_draw_size,nControlDefaultDefaultShape )
@@ -1161,6 +1163,7 @@ class HA_Panel(bpy.types.Panel):
         row.prop(sce, '["%s"]' % (nHA_Loops),text="Loops") 
         row.operator("object.op_haintegate",text='Integate brute force')
         row.operator("object.removehookdriveroperator",text='UnHookDrivers')
+
 
 
 
