@@ -272,39 +272,35 @@ def add_driverCumHaFi(consumer,fu,n,index ,ID):
     
 def _osz_hook_HA(consumer,IDwatched):
     name = consumer.name
-    pp=name.partition(nControlRoot)
+    order = consumer[nHAOrder]
+    pp=name.partition(nHARoot)
     prefix = pp[0]
-    cso = bpy.data.objects.get(prefix+nCSin1)
-    add_driverCumHaFi(cso,'sin',1,0 ,IDwatched)
-    add_driverCumHaFi(cso,'sin',1,1 ,IDwatched)
-    add_driverCumHaFi(cso,'sin',1,2 ,IDwatched)
-    cso = bpy.data.objects.get(prefix+nCCos1)
-    add_driverCumHaFi(cso,'cos',1,0 ,IDwatched)
-    add_driverCumHaFi(cso,'cos',1,1 ,IDwatched)
-    add_driverCumHaFi(cso,'cos',1,2 ,IDwatched)
+    for o in range(1,order):
+        OName ="{:}{:}{:}".format(prefix,nHASin,o)
+        cso = bpy.data.objects.get(OName)
+        add_driverCumHaFi(cso,'sin',o,0 ,IDwatched)
+        add_driverCumHaFi(cso,'sin',o,1 ,IDwatched)
+        add_driverCumHaFi(cso,'sin',o,2 ,IDwatched)
 
-    cso = bpy.data.objects.get(prefix+nCSin2)
-    add_driverCumHaFi(cso,'sin',2,0 ,IDwatched)
-    add_driverCumHaFi(cso,'sin',2,1 ,IDwatched)
-    add_driverCumHaFi(cso,'sin',2,2 ,IDwatched)
-    cso = bpy.data.objects.get(prefix+nCCos2)
-    add_driverCumHaFi(cso,'cos',2,0 ,IDwatched)
-    add_driverCumHaFi(cso,'cos',2,1 ,IDwatched)
-    add_driverCumHaFi(cso,'cos',2,2 ,IDwatched)
+        OName ="{:}{:}{:}".format(prefix,nHACos,o)
+        cso = bpy.data.objects.get(OName)
+        add_driverCumHaFi(cso,'cos',o,0 ,IDwatched)
+        add_driverCumHaFi(cso,'cos',o,1 ,IDwatched)
+        add_driverCumHaFi(cso,'cos',o,2 ,IDwatched)
 
 
 def _osz_unhook_HA(consumer):
     name = consumer.name
-    pp=name.partition(nControlRoot)
+    pp=name.partition(nHARoot)
+    order = consumer[nHAOrder]
     prefix = pp[0]
-    cso = bpy.data.objects.get(prefix+nCSin1)
-    cso.driver_remove('location')
-    cso = bpy.data.objects.get(prefix+nCCos1)
-    cso.driver_remove('location')
-    cso = bpy.data.objects.get(prefix+nCSin2)
-    cso.driver_remove('location')
-    cso = bpy.data.objects.get(prefix+nCCos2)
-    cso.driver_remove('location')
+    for o in range(1,order):
+        OName ="{:}{:}{:}".format(prefix,nHASin,o)
+        cso = bpy.data.objects.get(OName)
+        cso.driver_remove('location')
+        OName ="{:}{:}{:}".format(prefix,nHACos,o)
+        cso = bpy.data.objects.get(OName)
+        cso.driver_remove('location')
 
 
 class op_osz_hook_ha(bpy.types.Operator):
@@ -501,49 +497,40 @@ def osz2JsonFile(ID,filepath):
     #write to json file
     with open(filepath, 'w') as ji:
             jdata = {}
-            #1rst order
-            obj = bpy.data.objects.get(ID+nCSin1)
-            jdata[nCSin1] = [obj.location[0],obj.location[1],obj.location[2]]
-
-            obj = bpy.data.objects.get(ID+nCCos1)
-            jdata[nCCos1] = [obj.location[0],obj.location[1],obj.location[2]]
-
-            #2nd order
-            obj = bpy.data.objects.get(ID+nCSin2)
-            jdata[nCSin2] = [obj.location[0],obj.location[1],obj.location[2]]
-
-            obj = bpy.data.objects.get(ID+nCCos2)
-            jdata[nCCos2] = [obj.location[0],obj.location[1],obj.location[2]]
-
+            robj = bpy.data.objects.get(ID+nHARoot)
+            order = robj[nHAOrder] 
+            jdata[nHAOrder] = order
+            for o in range(1,order+1):
+                #do sin
+                nSet = "{:}{:}".format(nHASin,o)
+                obj = bpy.data.objects.get(OName)
+                jdata[nSet] = [obj.location[0],obj.location[1],obj.location[2]]
+                #do cos
+                nSet = "{:}{:}".format(nHACos,o)
+                obj = bpy.data.objects.get(ID+nSet)
+                jdata[nSet] = [obj.location[0],obj.location[1],obj.location[2]]
             json.dump(jdata, ji, ensure_ascii=False, indent=4)
             ji.close()
     return{'FINISHED'}
 
 def jsonFile2Osz(ID,filepath):
-    #write to json file
+    #read from json file
     with open(filepath, 'r') as ji:
             jdata = json.load(ji)
-            #1rst order
-            obj = bpy.data.objects.get(ID+nCSin1)
-            obj.location[0] = jdata[nCSin1][0]
-            obj.location[1] = jdata[nCSin1][1]
-            obj.location[2] = jdata[nCSin1][2]
-
-            obj = bpy.data.objects.get(ID+nCCos1)
-            obj.location[0] = jdata[nCCos1][0]
-            obj.location[1] = jdata[nCCos1][1]
-            obj.location[2] = jdata[nCCos1][2]
-
-            #2nd order
-            obj = bpy.data.objects.get(ID+nCSin2)
-            obj.location[0] = jdata[nCSin2][0]
-            obj.location[1] = jdata[nCSin2][1]
-            obj.location[2] = jdata[nCSin2][2]
-
-            obj = bpy.data.objects.get(ID+nCCos2)
-            obj.location[0] = jdata[nCCos2][0]
-            obj.location[1] = jdata[nCCos2][1]
-            obj.location[2] = jdata[nCCos2][2]
+            order = jdata[nHAOrder]
+            for o in range(1,order+1):
+                #do sin
+                nSet = "{:}{:}".format(nHASin,o)
+                obj = bpy.data.objects.get(ID+nSet)
+                obj.location[0] = jdata[nSet][0]
+                obj.location[1] = jdata[nSet][1]
+                obj.location[2] = jdata[nSet][2]
+                #do cos
+                nSet = "{:}{:}".format(nHACos,o)
+                obj = bpy.data.objects.get(ID+nSet)
+                obj.location[0] = jdata[nSet][0]
+                obj.location[1] = jdata[nSet][1]
+                obj.location[2] = jdata[nSet][2]
 
             ji.close()
     return{'FINISHED'}
@@ -577,7 +564,7 @@ class op_osz2Json(bpy.types.Operator, ExportHelper):
 
     def execute(self, context):
         id = context.active_object.name        
-        pp=id.partition(nControlRoot)
+        pp=id.partition(nHARoot)
         return osz2JsonFile(pp[0], self.filepath)
         
 class op_json2Osz(bpy.types.Operator, ImportHelper):
@@ -604,7 +591,7 @@ class op_json2Osz(bpy.types.Operator, ImportHelper):
 
     def execute(self, context):
         id = context.active_object.name        
-        pp=id.partition(nControlRoot)
+        pp=id.partition(nHARoot)
         return jsonFile2Osz(pp[0], self.filepath)
 
     
@@ -1137,7 +1124,7 @@ class HA_Panel(bpy.types.Panel):
     def poll(cls, context):
         obj = context.object
         sce = bpy.context.scene
-        pp=obj.name.partition(nControlRoot)
+        pp=obj.name.partition(nHARoot)
         return (context.active_object is not None) and (len(pp[1])>0)
 
     def draw(self, context):
