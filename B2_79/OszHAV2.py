@@ -246,6 +246,8 @@ def drv_cumHaFi(axis,fu,n,ID,t,v):
     obj = bpy.data.objects.get(ID)
     frames = bpy.context.scene[nHA_Frames]
     damp = frames*bpy.context.scene[nHA_Damp]
+    if (damp == 0): 
+        return 0
     timebase = frames/(2.*math.pi)
     magic = 2.
     f=(t)/timebase 
@@ -503,7 +505,7 @@ def osz2JsonFile(ID,filepath):
             for o in range(1,order+1):
                 #do sin
                 nSet = "{:}{:}".format(nHASin,o)
-                obj = bpy.data.objects.get(OName)
+                obj = bpy.data.objects.get(ID+nSet)
                 jdata[nSet] = [obj.location[0],obj.location[1],obj.location[2]]
                 #do cos
                 nSet = "{:}{:}".format(nHACos,o)
