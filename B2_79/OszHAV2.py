@@ -34,12 +34,6 @@ importlib.reload(BVT)
 from BVT import *
 
 
-#donot rename with BML data
-#nControlRoot = "[Osz]"
-#nCSin        = "[1]Sin(1t)"
-#nCCos        = "[1]Cos(1t)" 
-#nCSin2       = "[2]Sin(2t)"
-#nCCos2       = "[2]Cos(2t)" 
 nIDHAWatch    = "IDHAWatch"
 nHA_Damp      = "HA_Damp"
 nHA_Loops     = "HA_Loops"
@@ -365,13 +359,36 @@ class OszControl():
 
     def objIsOsz(obj):
         to_name = obj.name + nControlRoot
-        #print('is OscC')
-        #print(to_name)
         Cobj = bpy.data.objects.get(to_name)
         if (Cobj is not None ):
             return True
         else:
             return False
+
+    @staticmethod
+    def _objNameTaggedHA(obj):
+        name = obj.name
+        pp=name.partition(nHARoot)
+        if (len(pp[1])>0):
+            return True
+        else:
+            return False 
+
+    @classmethod
+    def objIsHA(self,obj):
+        if (self._objNameTaggedHA(obj)):
+            return True
+        else:
+            return False
+
+    @classmethod
+    def objHasHAParent(self,obj):
+        pa = obj.parent
+        if (pa):
+            return self._objNameTaggedHA(pa)
+        else:
+            return False
+
     
     
 def GenControl(ID):
@@ -1118,41 +1135,61 @@ class HA_Panel(bpy.types.Panel):
     """Creates a Panel in the Object properties window"""
     bl_label = "HA_Panel"
     bl_idname = "OBJECT_PT_HarmonicAnalysis"
-    bl_space_type = 'PROPERTIES'
-    bl_region_type = 'WINDOW'
-    bl_context = "object"
+    if (False): #option to have it in the prop panel    
+        bl_space_type = 'PROPERTIES'
+        bl_region_type = 'WINDOW'
+        bl_context = "object"
+    else:
+        bl_context = "object"
+        bl_space_type = 'VIEW_3D'
+        bl_region_type = 'UI'
+
 
     @classmethod
     def poll(cls, context):
         obj = context.object
-        sce = bpy.context.scene
-        pp=obj.name.partition(nHARoot)
-        return (context.active_object is not None) and (len(pp[1])>0)
+
+        res = False
+        if (obj):
+            c_test = OszControl
+            b_result = not c_test.objHasHAParent(obj)
+            res = b_result
+        return res   
 
     def draw(self, context):
         obj = context.object
         sce = bpy.context.scene
         layout = self.layout
         row = layout.row()
-        try:
-                v = obj[nIDHAWatch] #provoce error
-                row.prop(sce, '["%s"]' % (nHA_Damp),text="Damp") 
-                row.prop(sce, '["%s"]' % (nHA_Frames),text="Frames")
-                row = layout.row()
-                row.prop(obj, '["%s"]' % (nIDHAWatch),text="Watch") 
-                row.operator("object.addhookdriveroperator")
- 
-        except:
-                row.label('NoWatcher') 
-                row.operator("object.op_enable_watch")
-        row = layout.row()
-        row.operator("object.op_osz2json")
-        row.operator("object.op_json2osz")
-        row = layout.row()
-        row.prop(sce, '["%s"]' % (nHA_Loops),text="Loops") 
-        row.operator("object.op_haintegate",text='Integate brute force')
-        row.operator("object.removehookdriveroperator",text='UnHookDrivers')
+        pp=obj.name.partition(nHARoot)
+        if (len(pp[1])>0): 
+            try:
+                    v = obj[nIDHAWatch] #provoce error
+                    row.prop(sce, '["%s"]' % (nHA_Damp),text="Damp") 
+                    row.prop(sce, '["%s"]' % (nHA_Frames),text="Frames")
+                    row = layout.row()
+                    row.prop(obj, '["%s"]' % (nIDHAWatch),text="Watch") 
+                    row.operator("object.addhookdriveroperator")
+    
+            except:
+                    row.label('NoWatcher') 
+                    row.operator("object.op_enable_watch")
+            row = layout.row()
+            row.operator("object.op_osz2json")
+            row.operator("object.op_json2osz")
+            row = layout.row()
+            row.prop(sce, '["%s"]' % (nHA_Loops),text="Loops") 
+            row.operator("object.op_haintegate",text='Integate brute force')
+            row.operator("object.removehookdriveroperator",text='UnHookDrivers')
+        else:
+            c_test = OszControl
+            b_result = c_test.objIsHA(obj)
+            if (not b_result):
+                row.operator('object.embedinhaoperator') 
+            else:
+                row.label(text=(" Attached to " + obj.name + nHARoot))
 
+ 
 
 
 
@@ -1169,10 +1206,13 @@ class LissajousPanel(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        obj = context.object
-        sce = bpy.context.scene
-        pp=obj.name.partition(nControlRoot)
-        return (context.active_object is not None) and (len(pp[1])>0)
+        obj = context.active_object
+        if (obj is not None):
+            sce = bpy.context.scene
+            pp=obj.name.partition(nControlRoot)
+            return (len(pp[1])>0)
+        else:
+            return False
 
     def draw(self, context):
          obj = context.object
@@ -1262,7 +1302,20 @@ class CycleGenPanel(bpy.types.Panel):
              row = layout.row()
              row.label(text=(" ToDo : Update Display Path"))
          
-   
+class HAMenu(bpy.types.Menu):
+    bl_label = "HAMenu"
+    bl_idname = "OBJECT_MT_HA_menu"
+
+    def draw(self, context):
+        layout = self.layout
+        layout.operator("object.embedinhaoperator")
+
+def draw_HAMenu(self, context):
+    layout = self.layout
+    layout.menu(HAMenu.bl_idname)
+
+
+
 
 # Put Classes to publish here 
 _myclasses = (
@@ -1288,7 +1341,8 @@ _myclasses = (
               copyoszoperatorto,
               SetAmpAll,
               SetFramesAll,
-              SetShiftAll
+              SetShiftAll,
+              HAMenu
               ) 
                 
 
@@ -1297,13 +1351,17 @@ def register():
     bpy.app.driver_namespace["oscAxisIDe"] = oscAxisIDe
     bpy.app.driver_namespace["drv_cumHaFi"] = drv_cumHaFi
     bpy.app.driver_namespace["drv_HAAxisID"] = drv_HAAxisID
+
     for cls in _myclasses :
         bpy.utils.register_class(cls)
+    #can't find why this is added twice --- this is the only spot 
+    #bpy.types.VIEW3D_MT_object.append(draw_HAMenu)
 
 
 def unregister():
     for cls in _myclasses :
         bpy.utils.unregister_class(cls)
+    bpy.types.VIEW3D_MT_object.remove(draw_HAMenu)
     print("Unregistered OszHAV2 .. ")
 
 #run from run
@@ -1316,5 +1374,4 @@ if __name__ == "__main__":
 else:
     register()
     GenControl('')
-    GenHAControl('',5)
     print('OszHYV2 register done')
