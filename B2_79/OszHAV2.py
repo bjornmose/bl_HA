@@ -37,7 +37,6 @@ from BVT import *
 nIDHAWatch    = "IDHAWatch"
 nHA_Damp      = "HA_Damp"
 nHA_Loops     = "HA_Loops"
-nHA_Frames    = "HA_Frames"
 nControlRoot = "ControlRoot"
 nHARoot      = "HARoot"
 
@@ -235,10 +234,12 @@ def drv_HAAxisID(t,axis,ID):
         val = val + a * cos(o*f)
     return val
 
-def drv_cumHaFi(axis,fu,n,ID,t,v):
+
+def drv_cumHaFiDiff(axis,fu,n,ID,objorg,t,v):
     #calculate base fequency
     obj = bpy.data.objects.get(ID)
-    frames = bpy.context.scene[nHA_Frames]
+    #objorg = bpy.data.objects.get(IDorg)
+    frames = objorg[nFrames]
     damp = frames*bpy.context.scene[nHA_Damp]
     if (damp == 0): 
         return 0
@@ -247,17 +248,31 @@ def drv_cumHaFi(axis,fu,n,ID,t,v):
     f=(t)/timebase 
     c=0
     if (fu == 'sin'): 
-        c = magic*obj.location[axis] * sin(n*f)
+        c = magic*(obj.location[axis] - objorg.location[axis]) * sin(n*f)
     elif (fu == 'cos'): 
-        c = magic*obj.location[axis] * cos(n*f)
+        c = magic*(obj.location[axis] - objorg.location[axis]) * cos(n*f)
     else:
         print('drv_cumHaFi fU?')
     r = ((damp-1)*v + c)/damp
     return r
 
+def drv_cumLocDiff(axis,ID,objorg,t,v):
+    #calculate base fequency
+    obj = bpy.data.objects.get(ID)
+    frames = objorg[nFrames]
+    damp = frames*bpy.context.scene[nHA_Damp]
+    if (damp == 0): 
+        return 0
+    timebase = frames/(2.*math.pi)
+    f=(t)/timebase 
+    c = (obj.location[axis] - v)
+    r = v + c/damp
+    return r
+
+
 
 def _driverCumHaFi(fu,n,index ,ID):
-    txt = "drv_cumHaFi({:},'{:}',{:},'{:}',frame,self.location[{:}])".format(index,fu,n,ID,index)
+    txt = "drv_cumHaFiDiff({:},'{:}',{:},'{:}',self.parent,frame,self.location[{:}])".format(index,fu,n,ID,index)
     return txt
      
 
@@ -265,13 +280,24 @@ def add_driverCumHaFi(consumer,fu,n,index ,ID):
     d = consumer.driver_add( 'location', index ).driver
     d.use_self = True
     d.expression = _driverCumHaFi(fu,n,index ,ID) 
+
+def add_driverLocDiff(consumer,index ,ID):
+    d = consumer.driver_add( 'location', index ).driver
+    d.use_self = True
+    txt = "drv_cumLocDiff({:},'{:}',self,frame,self.location[{:}])".format(index,ID,index)
+    d.expression = txt 
     
 def _osz_hook_HA(consumer,IDwatched):
     name = consumer.name
     order = consumer[nHAOrder]
     pp=name.partition(nHARoot)
     prefix = pp[0]
-    for o in range(1,order):
+
+    add_driverLocDiff(consumer,0,IDwatched)
+    add_driverLocDiff(consumer,1,IDwatched)
+    add_driverLocDiff(consumer,2,IDwatched)
+
+    for o in range(1,order+1):
         OName ="{:}{:}{:}".format(prefix,nHASin,o)
         cso = bpy.data.objects.get(OName)
         add_driverCumHaFi(cso,'sin',o,0 ,IDwatched)
@@ -290,7 +316,8 @@ def _osz_unhook_HA(consumer):
     pp=name.partition(nHARoot)
     order = consumer[nHAOrder]
     prefix = pp[0]
-    for o in range(1,order):
+    consumer.driver_remove('location')
+    for o in range(1,order+1):
         OName ="{:}{:}{:}".format(prefix,nHASin,o)
         cso = bpy.data.objects.get(OName)
         cso.driver_remove('location')
@@ -692,8 +719,16 @@ class EmbedInHAOperator(bpy.types.Operator):
 
     def execute(self, context):
         obj = context.object
+        sce = bpy.context.scene
+
+        try:
+            order = sce[nHAOrder]
+        except:
+            order = 5
+            sce[nHAOrder] = order
+
         name = obj.name
-        pobj = GenHAControl(name,5)
+        pobj = GenHAControl(name,order)
         pobj.location = obj.location
         obj.parent = pobj
         AddHAdriver(obj,name)
@@ -1094,10 +1129,6 @@ class op_Enable_Watch(Operator):
             v = sce[nHA_Damp]
         except:
             sce[nHA_Damp] = 1.
-        try:
-            v = sce[nHA_Frames]
-        except:
-            sce[nHA_Frames] = 2*2*4*5*7
         return {'FINISHED'}
         
 class op_HA_Integrate(Operator):
@@ -1166,7 +1197,6 @@ class HA_Panel(bpy.types.Panel):
             try:
                     v = obj[nIDHAWatch] #provoce error
                     row.prop(sce, '["%s"]' % (nHA_Damp),text="Damp") 
-                    row.prop(sce, '["%s"]' % (nHA_Frames),text="Frames")
                     row = layout.row()
                     row.prop(obj, '["%s"]' % (nIDHAWatch),text="Watch") 
                     row.operator("object.addhookdriveroperator")
@@ -1174,6 +1204,7 @@ class HA_Panel(bpy.types.Panel):
             except:
                     row.label('NoWatcher') 
                     row.operator("object.op_enable_watch")
+
             row = layout.row()
             row.operator("object.op_osz2json")
             row.operator("object.op_json2osz")
@@ -1181,6 +1212,11 @@ class HA_Panel(bpy.types.Panel):
             row.prop(sce, '["%s"]' % (nHA_Loops),text="Loops") 
             row.operator("object.op_haintegate",text='Integate brute force')
             row.operator("object.removehookdriveroperator",text='UnHookDrivers')
+            layout.label(text='Object')
+            row = layout.row()
+            row.prop(obj, '["%s"]' % (nAmplitude),text="Amp") 
+            row.prop(obj, '["%s"]' % (nFrames),text="Frames") 
+            row.prop(obj, '["%s"]' % (nShift),text="Shift") 
         else:
             c_test = OszControl
             b_result = c_test.objIsHA(obj)
@@ -1349,8 +1385,9 @@ _myclasses = (
 def register():
     bpy.app.driver_namespace["oscAxisID"] = oscAxisID
     bpy.app.driver_namespace["oscAxisIDe"] = oscAxisIDe
-    bpy.app.driver_namespace["drv_cumHaFi"] = drv_cumHaFi
     bpy.app.driver_namespace["drv_HAAxisID"] = drv_HAAxisID
+    bpy.app.driver_namespace["drv_cumHaFiDiff"] = drv_cumHaFiDiff
+    bpy.app.driver_namespace["drv_cumLocDiff"] = drv_cumLocDiff
 
     for cls in _myclasses :
         bpy.utils.register_class(cls)
