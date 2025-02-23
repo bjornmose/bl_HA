@@ -370,6 +370,49 @@ def jsonFile2Osz(ID,filepath):
             ji.close()
     return{'FINISHED'}
 
+def _copy_toHA_make_all_children_watch(obj,order):
+    paName=obj.name
+    newParent = createEmpty("HA_"+paName,0.5,'SPHERE')
+    for child in obj.children :
+        chName=child.name
+
+        newchild = createEmpty("HA_"+chName,0.5,'SPHERE')
+        pobj = GenHAControl(newchild.name,order)
+        pobj.location = obj.location
+        pobj.parent = newParent
+        newchild.parent = pobj
+        AddHAdriver(newchild,pobj.name)
+
+
+        pobj[nIDHAWatch] = chName
+        _osz_hook_HA(pobj,chName)
+    return {'FINISHED'} 
+
+class EmbedChildrenHAOperator(bpy.types.Operator):
+    #bl_idname no upper Case allowed!
+    bl_idname = "object.embedchildrehaoperator"
+    bl_label = "Make_All_Children_HA"
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object is not None
+
+    def execute(self, context):
+        obj = context.object
+        sce = bpy.context.scene        
+        try:
+            order = sce[nHAOrder]
+        except:
+            order = 5
+            sce[nHAOrder] = order
+
+        return _copy_toHA_make_all_children_watch(obj,order)
+
+
+    
+
+
+
 
 
 class op_osz2Json(bpy.types.Operator, ExportHelper):
@@ -457,23 +500,6 @@ class EmbedInHAOperator(bpy.types.Operator):
         AddHAdriver(obj,name)
         return {'FINISHED'}
 
-class EmbedInOszOperator(bpy.types.Operator):
-    #bl_idname no upper Case allowed!
-    bl_idname = "object.embedinoszoperator"
-    bl_label = "MakeOszChild"
-
-    @classmethod
-    def poll(cls, context):
-        return context.active_object is not None
-
-    def execute(self, context):
-        obj = context.object
-        name = obj.name
-        pobj = GenControl(name)
-        pobj.location = obj.location
-        obj.parent = pobj
-        AddOszDrivere(obj,name)
-        return {'FINISHED'}
 
 
 
@@ -592,33 +618,13 @@ class HA_Panel(bpy.types.Panel):
                 row.operator('object.embedinhaoperator') 
             else:
                 row.label(text=(" Attached to " + obj.name + nHARoot))
-
- 
-
-
-
-
-         
-         
-class HAMenu(bpy.types.Menu):
-    bl_label = "HAMenu"
-    bl_idname = "OBJECT_MT_HA_menu"
-
-    def draw(self, context):
-        layout = self.layout
-        layout.operator("object.embedinhaoperator")
-
-def draw_HAMenu(self, context):
-    layout = self.layout
-    layout.menu(HAMenu.bl_idname)
-
-
+            row = layout.row()
+            row.operator("object.embedchildrehaoperator") 
 
 
 # Put Classes to publish here 
 _myclasses = (
               HA_Panel,
-              EmbedInOszOperator,
               EmbedInHAOperator,
               op_osz2Json,
               op_json2Osz,
@@ -626,7 +632,7 @@ _myclasses = (
               op_osz_unhook_ha,
               op_Enable_Watch,
               op_HA_Integrate,
-              HAMenu
+              EmbedChildrenHAOperator
               ) 
                 
 
@@ -644,7 +650,7 @@ def register():
 def unregister():
     for cls in _myclasses :
         bpy.utils.unregister_class(cls)
-    bpy.types.VIEW3D_MT_object.remove(draw_HAMenu)
+    #bpy.types.VIEW3D_MT_object.remove(draw_HAMenu)
     print("Unregistered OszHAV2 .. ")
 
 #run from run
