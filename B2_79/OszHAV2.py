@@ -370,7 +370,7 @@ def jsonFile2Osz(ID,filepath):
             ji.close()
     return{'FINISHED'}
 
-def _copy_toHA_make_all_children_watch(obj,order):
+def _copy_toHA_make_all_children_watch(obj,order,frames):
     paName=obj.name
     newParent = createEmpty("HA_"+paName,0.5,'SPHERE')
     for child in obj.children :
@@ -380,8 +380,9 @@ def _copy_toHA_make_all_children_watch(obj,order):
         pobj = GenHAControl(newchild.name,order)
         pobj.location = obj.location
         pobj.parent = newParent
+        pobj[nFrames] = frames
         newchild.parent = pobj
-        AddHAdriver(newchild,pobj.name)
+        AddHAdriver(newchild,newchild.name)
 
 
         pobj[nIDHAWatch] = chName
@@ -405,8 +406,13 @@ class EmbedChildrenHAOperator(bpy.types.Operator):
         except:
             order = 5
             sce[nHAOrder] = order
+        try:
+            frames = sce[nFrames]
+        except:
+            frames = 40
+            sce[nFrames] = frames
 
-        return _copy_toHA_make_all_children_watch(obj,order)
+        return _copy_toHA_make_all_children_watch(obj,order,frames)
 
 
     
