@@ -27,6 +27,8 @@ if not dir in sys.path:
 
 import BVT
 
+# empty_draw_type [‘PLAIN_AXES’, ‘ARROWS’, ‘SINGLE_ARROW’, ‘CIRCLE’, ‘CUBE’, ‘SPHERE’, ‘CONE’, ‘IMAGE’]
+
 # this next part forces a reload in case you edit the source after you first start the blender session
 import importlib
 importlib.reload(BVT)
@@ -105,10 +107,17 @@ def drv_HAAxisID(t,axis,ID):
     obj = bpy.data.objects.get(ID+nHARoot)
     if (not obj):
         return 0
-    try:
-     frames =  obj[nFrames]
-    except: 
-     frames = nDefaultPeriod 
+    pa = obj.parent
+    if (obj.parent is not None):
+        try:
+            frames = pa[nFrames]
+            #brute force synchronizing
+            obj[nFrames] = frames
+        except:
+            frames = obj[nFrames]
+    else:
+        frames = obj[nFrames]
+
     try:
      shift  =  obj[nShift] 
     except: 
@@ -125,9 +134,8 @@ def drv_HAAxisID(t,axis,ID):
     try:
         now = obj[nClock] 
     except: 
-        p = obj.parent
         try:
-            now = p[nClock] 
+            now = pa[nClock] 
         except:
             now = t
 
@@ -293,11 +301,18 @@ class OszControl():
         else:
             return False
 
+    @classmethod
+    def objHasHACildren(self,obj):
+        for child in obj.children:
+            if self._objNameTaggedHA(child):
+                return True
+        return False
+
     
     
 
 def GenHAControl(ID,nOrder):
-     w_empty_draw_size = 1
+     w_empty_draw_size = 0.1
      OName =ID+nHARoot
      Cobj = bpy.data.objects.get(OName)
      if (not Cobj):
@@ -311,11 +326,13 @@ def GenHAControl(ID,nOrder):
         obj = bpy.data.objects.get(OName)
         if (not obj):
          obj = createEmpty(OName,w_empty_draw_size,'ARROWS')
+         obj.hide = True
          obj.parent = Cobj
         OName ="{:}{:}{:}".format(ID,nHACos,order)
         obj = bpy.data.objects.get(OName)
         if (not obj):
          obj = createEmpty(OName,w_empty_draw_size,'ARROWS')
+         obj.hide = True
          obj.parent = Cobj
 
      return(Cobj)
@@ -372,11 +389,12 @@ def jsonFile2Osz(ID,filepath):
 
 def _copy_toHA_make_all_children_watch(obj,order,frames):
     paName=obj.name
-    newParent = createEmpty("HA_"+paName,0.5,'SPHERE')
+    newParent = createEmpty("HA_"+paName,0.1,'PLAIN_AXES')
+    newParent[nFrames] = frames
     for child in obj.children :
         chName=child.name
 
-        newchild = createEmpty("HA_"+chName,0.5,'SPHERE')
+        newchild = createEmpty("HA_"+chName,0.1,'CUBE')
         pobj = GenHAControl(newchild.name,order)
         pobj.location = obj.location
         pobj.parent = newParent
@@ -583,12 +601,13 @@ class HA_Panel(bpy.types.Panel):
         res = False
         if (obj):
             c_test = OszControl
-            b_result = not c_test.objHasHAParent(obj)
+            b_result = not c_test.objHasHAParent(obj) or c_test.objHasHACildren(obj)
             res = b_result
         return res   
 
     def draw(self, context):
         obj = context.object
+        c_test = OszControl
         sce = bpy.context.scene
         layout = self.layout
         row = layout.row()
@@ -619,13 +638,21 @@ class HA_Panel(bpy.types.Panel):
             row.prop(obj, '["%s"]' % (nShift),text="Shift") 
         else:
             c_test = OszControl
-            b_result = c_test.objIsHA(obj)
-            if (not b_result):
-                row.operator('object.embedinhaoperator') 
+            if c_test.objHasHACildren(obj):
+                #row.prop(obj, '["%s"]' % (nAmplitude),text="Amp") 
+                row.prop(obj, '["%s"]' % (nFrames),text="Frames") 
+                #row.prop(obj, '["%s"]' % (nShift),text="Shift")
+                row = layout.row()
+                row.prop(sce, '["%s"]' % (nHA_Loops),text="Loops") 
+                row.operator("object.op_haintegate",text='Integate brute force')
             else:
-                row.label(text=(" Attached to " + obj.name + nHARoot))
-            row = layout.row()
-            row.operator("object.embedchildrehaoperator") 
+                row = layout.row()
+                row.operator("object.embedchildrehaoperator") 
+                if (not c_test.objIsHA(obj)):
+                    row = layout.row()
+                    row.operator('object.embedinhaoperator') 
+                else:
+                    row.label(text=(" Attached to " + obj.name + nHARoot))
 
 
 # Put Classes to publish here 
