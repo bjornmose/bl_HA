@@ -280,10 +280,11 @@ class op_osz_unhook_ha(bpy.types.Operator):
 
     def execute(self,context):
         obj = context.object
+        _osz_unhook_HA(obj)
         return{'FINISHED'}
     
  
-class OszControl():
+class HA():
 
     def objIsOsz(obj):
         to_name = obj.name + nControlRoot
@@ -407,6 +408,13 @@ def _copy_toHA_make_all_children_watch(obj,order,frames):
     paName=obj.name
     newParent = createEmpty("HA_"+paName,0.1,'PLAIN_AXES')
     newParent[nFrames] = frames
+    try:
+        newParent['~armature'] = obj['~armature']
+        newParent['skeleton'] = obj['skeleton']
+        newParent['metrabs'] = obj['metrabs']
+    except:
+        pass
+
     for child in obj.children :
         chName=child.name
 
@@ -616,14 +624,12 @@ class HA_Panel(bpy.types.Panel):
 
         res = False
         if (obj):
-            c_test = OszControl
-            b_result = not c_test.objHasHAParent(obj) or c_test.objHasHACildren(obj)
+            b_result = (not HA.objHasHAParent(obj) or HA.objHasHACildren(obj)) and (obj.type == 'EMPTY')
             res = b_result
         return res   
 
     def draw(self, context):
         obj = context.object
-        c_test = OszControl
         sce = bpy.context.scene
         layout = self.layout
         row = layout.row()
@@ -653,8 +659,7 @@ class HA_Panel(bpy.types.Panel):
             row.prop(obj, '["%s"]' % (nFrames),text="Frames") 
             row.prop(obj, '["%s"]' % (nShift),text="Shift") 
         else:
-            c_test = OszControl
-            if c_test.objHasHACildren(obj):
+            if HA.objHasHACildren(obj):
                 #row.prop(obj, '["%s"]' % (nAmplitude),text="Amp") 
                 row.prop(obj, '["%s"]' % (nFrames),text="Frames") 
                 #row.prop(obj, '["%s"]' % (nShift),text="Shift")
@@ -665,8 +670,9 @@ class HA_Panel(bpy.types.Panel):
                 row.operator("object.op_oszunhookhachildren",text='WatchDetach')
             else:
                 row = layout.row()
-                row.operator("object.embedchildrehaoperator") 
-                if (not c_test.objIsHA(obj)):
+                if len(obj.children) > 0:
+                    row.operator("object.embedchildrehaoperator") 
+                if (not HA.objIsHA(obj)):
                     row = layout.row()
                     row.operator('object.embedinhaoperator') 
                 else:
