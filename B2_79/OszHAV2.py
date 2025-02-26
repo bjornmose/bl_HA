@@ -245,6 +245,24 @@ def _osz_unhook_HA(consumer):
         cso = bpy.data.objects.get(OName)
         cso.driver_remove('location')
 
+def _osz_unhook_HAchildren(parent):
+    for child in parent.children:
+        try :
+            # _osz_unhook_HA(child) throws exeption when child has no nHAOrder prop so no extra checks here
+            _osz_unhook_HA(child)
+            del child[nIDHAWatch]
+        except :
+            continue
+
+
+class op_osz_unhook_hachildren(bpy.types.Operator):
+    bl_idname = "object.op_oszunhookhachildren"
+    bl_label = "DetachWatch"
+
+    def execute(self,context):
+        obj = context.object
+        _osz_unhook_HAchildren(obj)
+        return{'FINISHED'}
 
 class op_osz_hook_ha(bpy.types.Operator):
     bl_idname = "object.addhookdriveroperator"
@@ -262,8 +280,6 @@ class op_osz_unhook_ha(bpy.types.Operator):
 
     def execute(self,context):
         obj = context.object
-        obsname=obj[nIDHAWatch]
-        _osz_unhook_HA(obj)
         return{'FINISHED'}
     
  
@@ -645,6 +661,8 @@ class HA_Panel(bpy.types.Panel):
                 row = layout.row()
                 row.prop(sce, '["%s"]' % (nHA_Loops),text="Loops") 
                 row.operator("object.op_haintegate",text='Integate brute force')
+                row = layout.row()
+                row.operator("object.op_oszunhookhachildren",text='WatchDetach')
             else:
                 row = layout.row()
                 row.operator("object.embedchildrehaoperator") 
@@ -665,7 +683,8 @@ _myclasses = (
               op_osz_unhook_ha,
               op_Enable_Watch,
               op_HA_Integrate,
-              EmbedChildrenHAOperator
+              EmbedChildrenHAOperator,
+              op_osz_unhook_hachildren
               ) 
                 
 
