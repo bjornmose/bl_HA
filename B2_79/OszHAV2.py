@@ -85,7 +85,6 @@ nControlDefaultDefaultShape = "SPHERE"
 def _runCycleOnce():
     start = bpy.context.scene.frame_start
     end = bpy.context.scene.frame_end
-    obj = bpy.context.active_object
     actual = start
     bpy.context.scene.frame_set(actual)
     while (actual < end + 1):
@@ -117,6 +116,9 @@ def drv_HAAxisID(t,axis,ID):
             frames = obj[nFrames]
     else:
         frames = obj[nFrames]
+    # half a potato sure you can make chef menu of it   
+    if frames < 7 :
+        return 0
 
     try:
      shift  =  obj[nShift] 
@@ -662,9 +664,10 @@ class HA_Panel(bpy.types.Panel):
             if HA.objHasHACildren(obj):
                 #row.prop(obj, '["%s"]' % (nAmplitude),text="Amp") 
                 row.prop(obj, '["%s"]' % (nFrames),text="Frames") 
+                row.prop(sce, '["%s"]' % (nHA_Damp),text="Damp") 
                 #row.prop(obj, '["%s"]' % (nShift),text="Shift")
                 row = layout.row()
-                row.prop(sce, '["%s"]' % (nHA_Loops),text="Loops") 
+                row.prop(sce, '["%s"]' % (nHA_Loops),text="Loops")
                 row.operator("object.op_haintegate",text='Integate brute force')
                 row = layout.row()
                 row.operator("object.op_oszunhookhachildren",text='WatchDetach')
