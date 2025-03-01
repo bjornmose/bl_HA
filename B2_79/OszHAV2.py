@@ -6,7 +6,7 @@
 
 import bpy
 import math
-from math import sin, cos, radians
+from math import sin, cos, sqrt, radians
 import mathutils
 import bmesh
 import json
@@ -88,7 +88,8 @@ def _runCycleOnce():
     actual = start
     bpy.context.scene.frame_set(actual)
     while (actual < end + 1):
-     #print("actual:",actual)
+     msg =  "actual:{:}/{:}".format(actual,end)
+     print(msg,end="\r")
      bpy.context.scene.frame_set(actual)
      actual += 1
 
@@ -161,7 +162,7 @@ def drv_cumHaFiDiff(axis,fu,n,ID,objorg,t,v):
     obj = bpy.data.objects.get(ID)
     #objorg = bpy.data.objects.get(IDorg)
     frames = objorg[nFrames]
-    damp = frames*bpy.context.scene[nHA_Damp]
+    damp = HA.calcDamp(frames)
     if (damp == 0): 
         return 0
     timebase = frames/(2.*math.pi)
@@ -182,7 +183,7 @@ def drv_cumLocDiff(axis,ID,objorg,t,v):
     #calculate base fequency
     obj = bpy.data.objects.get(ID)
     frames = objorg[nFrames]
-    damp = frames*bpy.context.scene[nHA_Damp]
+    damp = HA.calcDamp(frames)
     if (damp == 0): 
         return 0
     timebase = frames/(2.*math.pi)
@@ -295,6 +296,18 @@ class HA():
             return True
         else:
             return False
+    
+    @staticmethod
+    def generateHAprefix(name):
+        for n in range(1,999):
+            prefix = "HA{:}".format(n)
+            to_name = prefix +'_'+name
+            Cobj = bpy.data.objects.get(to_name)
+            if Cobj is None:
+                return prefix + '_'
+        return None
+
+
 
     @staticmethod
     def _objNameTaggedHA(obj):
@@ -304,6 +317,11 @@ class HA():
             return True
         else:
             return False 
+
+    @staticmethod
+    def calcDamp(frames):
+        damp = frames * bpy.context.scene[nHA_Damp]
+        return damp
 
     @classmethod
     def objIsHA(self,obj):
@@ -408,7 +426,8 @@ def jsonFile2Osz(ID,filepath):
 
 def _copy_toHA_make_all_children_watch(obj,order,frames):
     paName=obj.name
-    newParent = createEmpty("HA_"+paName,0.1,'PLAIN_AXES')
+    prefix=HA.generateHAprefix(paName)
+    newParent = createEmpty(prefix+paName,0.1,'PLAIN_AXES')
     newParent[nFrames] = frames
     try:
         newParent['~armature'] = obj['~armature']
@@ -420,7 +439,8 @@ def _copy_toHA_make_all_children_watch(obj,order,frames):
     for child in obj.children :
         chName=child.name
 
-        newchild = createEmpty("HA_"+chName,0.1,'CUBE')
+
+        newchild = createEmpty(prefix+chName,0.1,'CUBE')
         pobj = GenHAControl(newchild.name,order)
         pobj.location = obj.location
         pobj.parent = newParent
@@ -597,7 +617,7 @@ class op_HA_Integrate(Operator):
 
 
         for loop in range (1 , nof_loops+1):
-            print("HA_Integratin loop",loop)
+            print("HA_Integratin loop",loop,end='\r')
             _runCycleOnce()
             sce[nHA_Damp] = loop
         return {'FINISHED'}
