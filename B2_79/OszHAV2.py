@@ -162,9 +162,10 @@ def drv_cumHaFiDiff(axis,fu,n,ID,objorg,t,v):
     obj = bpy.data.objects.get(ID)
     #objorg = bpy.data.objects.get(IDorg)
     frames = objorg[nFrames]
-    damp = HA.calcDamp(frames)
-    if (damp == 0): 
+    damp = bpy.context.scene[nHA_Damp]
+    if damp < 2: 
         return 0
+    damp = HA.calcDamp(frames)
     timebase = frames/(2.*math.pi)
     magic = 2.
     f=(t)/timebase 
@@ -611,7 +612,7 @@ class op_HA_Integrate(Operator):
         try:
           nof_loops = sce[nHA_Loops]
         except:
-          nof_loops = 20
+          nof_loops = 1
           sce[nHA_Loops] = nof_loops
 
 
