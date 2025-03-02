@@ -41,6 +41,7 @@ nHA_Damp      = "HA_Damp"
 nHA_Loops     = "HA_Loops"
 nControlRoot = "ControlRoot"
 nHARoot      = "HARoot"
+nHAPlayBackOrder  = "HAPlayBackOrder"
 
 nHASin        = "HASin"
 nHACos        = "HACos" 
@@ -49,25 +50,6 @@ nCSin1       = "CSin1"
 nCCos1       = "CCos1" 
 nCSin2       = "CSin2"
 nCCos2       = "CCos2" 
-
-
-nLissajousScale = "LisScale"
-nLissajousSin1x = "LisSin1x"
-nLissajousSin1y = "LisSin1y"
-nLissajousSin1z = "LisSin1z"
-
-nLissajousCos1x = "LisCos1x"
-nLissajousCos1y = "LisCos1y"
-nLissajousCos1z = "LisCos1z"
-
-nLissajousSin2x = "LisSin2x"
-nLissajousSin2y = "LisSin2y"
-nLissajousSin2z = "LisSin2z"
-
-nLissajousCos2x = "LisCos2x"
-nLissajousCos2y = "LisCos2y"
-nLissajousCos2z = "LisCos2z"
-
 
 
 nFrames      = "Osz_Frames"
@@ -81,6 +63,14 @@ nClock       = "Osz_Clock"
 nDefaultPeriod =2*2*3*5*7
 
 nControlDefaultDefaultShape = "SPHERE"
+
+def completescene():
+    scene = bpy.context.scene
+    try:
+        v = scene[nHAPlayBackOrder]
+    except:
+        scene[nHAPlayBackOrder] = 100
+
 
 def _runCycleOnce():
     start = bpy.context.scene.frame_start
@@ -141,6 +131,10 @@ def drv_HAAxisID(t,axis,ID):
             now = pa[nClock] 
         except:
             now = t
+    try:
+        nOrder = min(bpy.context.scene[nHAPlayBackOrder],nOrder)
+    except:
+        pass
 
     timebase = frames/(2*math.pi)
     f=(now+shift)/timebase
@@ -608,7 +602,9 @@ class op_HA_Integrate(Operator):
 
     def execute(self, context):
         sce = bpy.context.scene
-        sce[nHA_Damp] = 1.
+        #sce[nHA_Damp] = 1.
+        storePBO = sce[nHAPlayBackOrder]
+        sce[nHAPlayBackOrder] = 0
         try:
           nof_loops = sce[nHA_Loops]
         except:
@@ -620,7 +616,8 @@ class op_HA_Integrate(Operator):
         for loop in range (1 , nof_loops+1):
             print("HA_Integratin loop",loop,end='\r')
             _runCycleOnce()
-            sce[nHA_Damp] = loop
+            sce[nHA_Damp] = sce[nHA_Damp] +1
+        sce[nHAPlayBackOrder] = storePBO
         return {'FINISHED'}
         
 
@@ -686,6 +683,7 @@ class HA_Panel(bpy.types.Panel):
                 #row.prop(obj, '["%s"]' % (nAmplitude),text="Amp") 
                 row.prop(obj, '["%s"]' % (nFrames),text="Frames") 
                 row.prop(sce, '["%s"]' % (nHA_Damp),text="Damp") 
+                row.prop(sce, '["%s"]' % (nHAPlayBackOrder),text="PBO") 
                 #row.prop(obj, '["%s"]' % (nShift),text="Shift")
                 row = layout.row()
                 row.prop(sce, '["%s"]' % (nHA_Loops),text="Loops")
@@ -725,9 +723,9 @@ def register():
 
     for cls in _myclasses :
         bpy.utils.register_class(cls)
+    completescene()
     #can't find why this is added twice --- this is the only spot 
     #bpy.types.VIEW3D_MT_object.append(draw_HAMenu)
-
 
 def unregister():
     for cls in _myclasses :
