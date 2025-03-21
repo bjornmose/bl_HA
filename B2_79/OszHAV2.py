@@ -318,6 +318,28 @@ class HA():
         damp = frames * bpy.context.scene[nHA_Damp]
         return damp
 
+    @staticmethod
+    def getObjSpectrum(obj):
+        order = obj[nHAOrder]
+        pp=obj.name.partition(nHARoot)
+        prefix = pp[0]
+        res = [0.0]
+        for o in range(1,order+1):
+            res.append(0.0)
+            OName ="{:}{:}{:}".format(prefix,nHASin,o)
+            cso = bpy.data.objects.get(OName)
+            x = cso.location[0]
+            y = cso.location[1]
+            z = cso.location[2]
+            res[o] = sqrt(x*x+y*y+z*z)
+            OName ="{:}{:}{:}".format(prefix,nHACos,o)
+            cso = bpy.data.objects.get(OName)
+            x = cso.location[0]
+            y = cso.location[1]
+            z = cso.location[2]
+            res[o] += sqrt(x*x+y*y+z*z)
+        return(res)
+
     @classmethod
     def objIsHA(self,obj):
         if (self._objNameTaggedHA(obj)):
@@ -565,6 +587,23 @@ class EmbedInHAOperator(bpy.types.Operator):
         AddHAdriver(obj,name)
         return {'FINISHED'}
 
+class op_Print_Object_Spectrum(Operator):
+    """Makes watch option available"""
+    #bl_idname no upper Case allowed!
+    bl_idname = "object.op_pso"
+    bl_label = "Print_Object_Spectrum"
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object is not None
+
+    def execute(self, context):
+        obj = context.object
+        res = HA.getObjSpectrum(obj)
+        print(obj.name,res)
+        return {'FINISHED'}
+
+
 
 
 
@@ -586,8 +625,10 @@ class op_Enable_Watch(Operator):
         sce = bpy.context.scene
         try:
             v = sce[nHA_Damp]
+            v = sce[nHA_Loops]
         except:
-            sce[nHA_Damp] = 1.
+            sce[nHA_Damp] = 1
+            sce[nHA_Loops] = 1
         return {'FINISHED'}
         
 class op_HA_Integrate(Operator):
@@ -616,7 +657,8 @@ class op_HA_Integrate(Operator):
         for loop in range (1 , nof_loops+1):
             print("HA_Integratin loop",loop,end='\r')
             _runCycleOnce()
-            sce[nHA_Damp] = sce[nHA_Damp] +1
+            # todo find better shedule
+            # sce[nHA_Damp] = sce[nHA_Damp] +1
         sce[nHAPlayBackOrder] = storePBO
         return {'FINISHED'}
         
@@ -654,6 +696,7 @@ class HA_Panel(bpy.types.Panel):
         layout = self.layout
         row = layout.row()
         pp=obj.name.partition(nHARoot)
+        watch = 0
         if (len(pp[1])>0): 
             try:
                     v = obj[nIDHAWatch] #provoce error
@@ -661,6 +704,7 @@ class HA_Panel(bpy.types.Panel):
                     row = layout.row()
                     row.prop(obj, '["%s"]' % (nIDHAWatch),text="Watch") 
                     row.operator("object.addhookdriveroperator")
+                    watch = 1 
     
             except:
                     row.label('NoWatcher') 
@@ -669,10 +713,12 @@ class HA_Panel(bpy.types.Panel):
             row = layout.row()
             row.operator("object.op_osz2json")
             row.operator("object.op_json2osz")
+            row.operator("object.op_pso")
             row = layout.row()
-            row.prop(sce, '["%s"]' % (nHA_Loops),text="Loops") 
-            row.operator("object.op_haintegate",text='Integate brute force')
-            row.operator("object.removehookdriveroperator",text='UnHookDrivers')
+            if watch :
+                row.prop(sce, '["%s"]' % (nHA_Loops),text="Loops") 
+                row.operator("object.op_haintegate",text='Integate brute force')
+                row.operator("object.removehookdriveroperator",text='UnHookDrivers')
             layout.label(text='Object')
             row = layout.row()
             row.prop(obj, '["%s"]' % (nAmplitude),text="Amp") 
@@ -693,6 +739,7 @@ class HA_Panel(bpy.types.Panel):
             else:
                 row = layout.row()
                 if len(obj.children) > 0:
+                    row.prop(sce, '["%s"]' % (nHAOrder),text="HAO") 
                     row.operator("object.embedchildrehaoperator") 
                 if (not HA.objIsHA(obj)):
                     row = layout.row()
@@ -712,7 +759,8 @@ _myclasses = (
               op_Enable_Watch,
               op_HA_Integrate,
               EmbedChildrenHAOperator,
-              op_osz_unhook_hachildren
+              op_osz_unhook_hachildren,
+              op_Print_Object_Spectrum
               ) 
                 
 
