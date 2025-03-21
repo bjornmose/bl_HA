@@ -320,10 +320,14 @@ class HA():
 
     @staticmethod
     def getObjSpectrum(obj):
-        order = obj[nHAOrder]
+        res = [0.0]
+        try:
+            order = obj[nHAOrder]
+        except:
+            return(res)
+            
         pp=obj.name.partition(nHARoot)
         prefix = pp[0]
-        res = [0.0]
         for o in range(1,order+1):
             res.append(0.0)
             OName ="{:}{:}{:}".format(prefix,nHASin,o)
@@ -361,6 +365,31 @@ class HA():
             if self._objNameTaggedHA(child):
                 return True
         return False
+
+def plot_spec(data,Name):
+    # Set curve coordinates
+    points = np.zeros((len(data), 3))
+    for N in range(len(data)):
+        x = 0.1 * N
+        y = 0
+        z = data[N]
+        points[N] = [x, y, z]
+
+    # Create the curve and set its points
+    curve_data = bpy.data.curves.new(name=Name, type='CURVE')
+
+    polyline = curve_data.splines.new('POLY')
+    polyline.points.add(len(points) - 1)
+
+    for N in range(len(points)):
+        x, y, z = points[N]
+        polyline.points[N].co = (x, y, z, 1)
+
+    curve_object = bpy.data.objects.new(Name, curve_data)
+    bpy.context.scene.objects.link( curve_object )
+    return curve_object
+
+    #bpy.context.collection.objects.link(curve_object)
 
     
     
@@ -600,9 +629,41 @@ class op_Print_Object_Spectrum(Operator):
     def execute(self, context):
         obj = context.object
         res = HA.getObjSpectrum(obj)
-        print(obj.name,res)
+        s = []
+        for data in res:
+            t = '{:6.3f}'.format(data)
+            s.append(t)
+        print(obj.name,s)
+        plot_spec(res,'SP_'+obj.name)
         return {'FINISHED'}
 
+class op_Print_Chidren_Spectrum(Operator):
+    """Makes watch option available"""
+    #bl_idname no upper Case allowed!
+    bl_idname = "object.op_psc"
+    bl_label = "Print_Object_Spectrum"
+
+    @classmethod
+    def poll(cls, context):
+        return context.active_object is not None
+
+    def execute(self, context):
+        obj = context.object
+        i = 0
+        pa = createEmpty('Spec',0.1,'ARROWS')
+        for child in obj.children:
+            res = HA.getObjSpectrum(child)
+            s = []
+            for data in res:
+                t = '{:6.3f}'.format(data)
+                s.append(t)
+            print(s,child.name)
+            if len(res) > 2:
+                i +=1
+                plt = plot_spec(res,'SP_'+child.name)
+                plt.location[1] = i * 0.1
+                plt.parent = pa
+        return {'FINISHED'}
 
 
 
@@ -736,6 +797,8 @@ class HA_Panel(bpy.types.Panel):
                 row.operator("object.op_haintegate",text='Integate brute force')
                 row = layout.row()
                 row.operator("object.op_oszunhookhachildren",text='WatchDetach')
+                row = layout.row()
+                row.operator("object.op_psc",text='PSC')
             else:
                 row = layout.row()
                 if len(obj.children) > 0:
@@ -760,7 +823,8 @@ _myclasses = (
               op_HA_Integrate,
               EmbedChildrenHAOperator,
               op_osz_unhook_hachildren,
-              op_Print_Object_Spectrum
+              op_Print_Object_Spectrum,
+              op_Print_Chidren_Spectrum
               ) 
                 
 
