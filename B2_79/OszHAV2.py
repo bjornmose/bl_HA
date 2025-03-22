@@ -157,6 +157,8 @@ def drv_cumHaFiDiff(axis,fu,n,ID,objorg,t,v):
     #objorg = bpy.data.objects.get(IDorg)
     frames = objorg[nFrames]
     damp = bpy.context.scene[nHA_Damp]
+    if damp > 999:
+        return v
     if damp < 2: 
         return 0
     damp = HA.calcDamp(frames)
@@ -179,6 +181,8 @@ def drv_cumLocDiff(axis,ID,objorg,t,v):
     obj = bpy.data.objects.get(ID)
     frames = objorg[nFrames]
     damp = HA.calcDamp(frames)
+    if damp > 999:
+        return v
     if (damp == 0): 
         return 0
     timebase = frames/(2.*math.pi)
@@ -315,8 +319,71 @@ class HA():
 
     @staticmethod
     def calcDamp(frames):
-        damp = frames * bpy.context.scene[nHA_Damp]
+        damp = frames/2 * bpy.context.scene[nHA_Damp]
         return damp
+    
+    @staticmethod
+    def PlotChildrenSpectrum(obj):
+        i = 0
+        arrsum = np.array([0.0])
+        nSpec = 'Spec'
+        pa = bpy.data.objects.get(nSpec)
+        if pa is None:
+            pa = createEmpty(nSpec,0.1,'ARROWS')
+            pa.location[0] = 0.0
+            pa.location[1] = 1.0
+            pa.location[2] = 0.0
+        for child in pa.children:
+            deleteObject(child.name)
+        
+        for child in obj.children:
+            res = HA.getObjSpectrum(child)
+            pp  = child.name.partition(nHARoot)
+            newname = pp[0]
+
+
+            #print
+            if (False):
+                s = []
+                for data in res:
+                    t = '{:6.3f}'.format(data)
+                    s.append(t)
+                print(s,child.name)
+                #plot
+            if len(res) > 2:
+                i +=1
+                if(True):
+                    plt = plot_spec(res,'SP_'+newname)
+                    plt.location[1] = i * 0.05
+                    plt.parent = pa
+            #add
+            a1=np.array(arrsum)
+            a2=np.array(res)
+            arrsum = a1+a2
+        arrsum = arrsum/i
+        #print(arrsum)
+        plt = plot_spec(arrsum,'Average')
+        plt.location[1] = -0.1
+        plt.location[0] = i*0.05
+        plt.parent = pa
+        return arrsum
+
+    @staticmethod
+    def getChildrenSpectrumAverage(obj):
+        i = 0
+        arrsum = np.array([0.0])
+        for child in obj.children:
+            res = HA.getObjSpectrum(child)
+            if len(res) > 2:
+                i +=1
+            a1=np.array(arrsum)
+            a2=np.array(res)
+            arrsum = a1+a2
+        arrsum = arrsum/i
+        return arrsum
+
+    
+
 
     @staticmethod
     def getObjSpectrum(obj):
@@ -649,20 +716,7 @@ class op_Print_Chidren_Spectrum(Operator):
 
     def execute(self, context):
         obj = context.object
-        i = 0
-        pa = createEmpty('Spec',0.1,'ARROWS')
-        for child in obj.children:
-            res = HA.getObjSpectrum(child)
-            s = []
-            for data in res:
-                t = '{:6.3f}'.format(data)
-                s.append(t)
-            print(s,child.name)
-            if len(res) > 2:
-                i +=1
-                plt = plot_spec(res,'SP_'+child.name)
-                plt.location[1] = i * 0.1
-                plt.parent = pa
+        HA.PlotChildrenSpectrum(obj)
         return {'FINISHED'}
 
 
@@ -704,6 +758,8 @@ class op_HA_Integrate(Operator):
 
     def execute(self, context):
         sce = bpy.context.scene
+        obj = context.object
+        errlimit = 0.000001
         #sce[nHA_Damp] = 1.
         storePBO = sce[nHAPlayBackOrder]
         sce[nHAPlayBackOrder] = 0
@@ -714,13 +770,29 @@ class op_HA_Integrate(Operator):
           sce[nHA_Loops] = nof_loops
 
 
-
+        specPrev=HA.getChildrenSpectrumAverage(obj)
+        #print('old')
+        #print(specPrev)
         for loop in range (1 , nof_loops+1):
             print("HA_Integratin loop",loop,end='\r')
             _runCycleOnce()
+            print('dif')
+            specNow=HA.getChildrenSpectrumAverage(obj)
+            a1 = np.array(specPrev)
+            a2 = np.array(specNow)
+            dif = a1 -a2
+            max = dif.max()
+            min = dif.min()
+            err = max-min
+            print('E',err,'L',errlimit)
+            if (err < errlimit):
+                break
+            #print(dif)
+            specPrev = specNow
             # todo find better shedule
             # sce[nHA_Damp] = sce[nHA_Damp] +1
         sce[nHAPlayBackOrder] = storePBO
+        HA.PlotChildrenSpectrum(obj)
         return {'FINISHED'}
         
 
