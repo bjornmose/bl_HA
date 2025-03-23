@@ -136,7 +136,7 @@ def drv_HAAxisID(t,axis,ID):
     except:
         pass
 
-    timebase = frames/(2*math.pi)
+    timebase = frames/(2.*math.pi)
     f=(now+shift)/timebase
     val = 0
     for o in range(1,nOrder+1):        
@@ -156,10 +156,10 @@ def drv_cumHaFiDiff(axis,fu,n,ID,objorg,t,v):
     obj = bpy.data.objects.get(ID)
     #objorg = bpy.data.objects.get(IDorg)
     frames = objorg[nFrames]
-    damp = bpy.context.scene[nHA_Damp]
-    if damp > 999:
+    odamp = bpy.context.scene[nHA_Damp]
+    if odamp > 999:
         return v
-    if damp < 2: 
+    if odamp < 2: 
         return 0
     damp = HA.calcDamp(frames)
     timebase = frames/(2.*math.pi)
@@ -180,13 +180,12 @@ def drv_cumLocDiff(axis,ID,objorg,t,v):
     #calculate base fequency
     obj = bpy.data.objects.get(ID)
     frames = objorg[nFrames]
-    damp = HA.calcDamp(frames)
-    if damp > 999:
+    odamp = bpy.context.scene[nHA_Damp]
+    if odamp > 500:
         return v
-    if (damp == 0): 
+    if (odamp == 0): 
         return 0
-    timebase = frames/(2.*math.pi)
-    f=(t)/timebase 
+    damp = HA.calcDamp(frames)
     c = (obj.location[axis] - v)
     r = v + c/damp
     return r
@@ -319,7 +318,10 @@ class HA():
 
     @staticmethod
     def calcDamp(frames):
-        damp = frames/2 * bpy.context.scene[nHA_Damp]
+        damp = bpy.context.scene[nHA_Damp]
+        if damp > 500:
+            damp = damp - 500
+        damp = frames/2 * damp
         return damp
     
     @staticmethod
@@ -409,6 +411,12 @@ class HA():
             y = cso.location[1]
             z = cso.location[2]
             res[o] += sqrt(x*x+y*y+z*z)
+        
+        x = obj.location[0]
+        y = obj.location[1]
+        z = obj.location[2]
+        res[0] += sqrt(x*x+y*y+z*z)
+        
         return(res)
 
     @classmethod
@@ -448,10 +456,10 @@ def plot_spec(data,Name):
     polyline = curve_data.splines.new('POLY')
     polyline.points.add(len(points) - 1)
 
-    for N in range(len(points)):
+    for N in range(1,len(points)):
         x, y, z = points[N]
         polyline.points[N].co = (x, y, z, 1)
-
+    deleteObject(Name)
     curve_object = bpy.data.objects.new(Name, curve_data)
     bpy.context.scene.objects.link( curve_object )
     return curve_object
@@ -769,15 +777,20 @@ class op_HA_Integrate(Operator):
           nof_loops = 1
           sce[nHA_Loops] = nof_loops
 
-
-        specPrev=HA.getChildrenSpectrumAverage(obj)
+        if HA.objHasHACildren(obj):
+            specPrev=HA.getChildrenSpectrumAverage(obj)
+        else:
+            specPrev=HA.getObjSpectrum(obj)
         #print('old')
         #print(specPrev)
         for loop in range (1 , nof_loops+1):
             print("HA_Integratin loop",loop,end='\r')
             _runCycleOnce()
             print('dif')
-            specNow=HA.getChildrenSpectrumAverage(obj)
+            if HA.objHasHACildren(obj):
+                specNow=HA.getChildrenSpectrumAverage(obj)
+            else:
+                specNow=HA.getObjSpectrum(obj)
             a1 = np.array(specPrev)
             a2 = np.array(specNow)
             dif = a1 -a2
@@ -790,9 +803,18 @@ class op_HA_Integrate(Operator):
             #print(dif)
             specPrev = specNow
             # todo find better shedule
-            # sce[nHA_Damp] = sce[nHA_Damp] +1
+        da = sce[nHA_Damp]
+        if da < 500:
+            if (err < errlimit):
+                sce[nHA_Damp] = 500+da
+        else:
+            if (err < errlimit):
+                sce[nHA_Damp] = 1000
         sce[nHAPlayBackOrder] = storePBO
-        HA.PlotChildrenSpectrum(obj)
+        if HA.objHasHACildren(obj):
+            HA.PlotChildrenSpectrum(obj)
+        else:
+            plot_spec(specNow,'SP_'+obj.name)
         return {'FINISHED'}
         
 
@@ -873,7 +895,7 @@ class HA_Panel(bpy.types.Panel):
                 row.operator("object.op_psc",text='PSC')
             else:
                 row = layout.row()
-                if len(obj.children) > 0:
+                if len(obj.children) > 0: 
                     row.prop(sce, '["%s"]' % (nHAOrder),text="HAO") 
                     row.operator("object.embedchildrehaoperator") 
                 if (not HA.objIsHA(obj)):
