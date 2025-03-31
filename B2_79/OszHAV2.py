@@ -152,9 +152,7 @@ def drv_HAAxisID(t,axis,ID):
 
 
 def drv_cumHaFiDiff(axis,fu,n,ID,objorg,t,v):
-    #calculate base fequency
     obj = bpy.data.objects.get(ID)
-    #objorg = bpy.data.objects.get(IDorg)
     frames = objorg[nFrames]
     odamp = bpy.context.scene[nHA_Damp]
     if odamp > 999:
@@ -177,7 +175,6 @@ def drv_cumHaFiDiff(axis,fu,n,ID,objorg,t,v):
     return r
 
 def drv_cumLocDiff(axis,ID,objorg,t,v):
-    #calculate base fequency
     obj = bpy.data.objects.get(ID)
     frames = objorg[nFrames]
     odamp = bpy.context.scene[nHA_Damp]
@@ -800,13 +797,20 @@ class op_HA_Integrate(Operator):
             print('E',err,'L',errlimit)
             if (err < errlimit):
                 break
+            #shedule damp experimantal
+            if ((loop % 50) == 0):
+                sce[nHA_Damp] += 1
+                print(sce[nHA_Damp])
+
             #print(dif)
             specPrev = specNow
             # todo find better shedule
         da = sce[nHA_Damp]
-        if da < 500:
+        if da == 1:
+            sce[nHA_Damp] = 2
+        elif da < 500:
             if (err < errlimit):
-                sce[nHA_Damp] = 500+da
+                sce[nHA_Damp] = 502
         else:
             if (err < errlimit):
                 sce[nHA_Damp] = 1000
