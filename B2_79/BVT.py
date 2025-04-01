@@ -57,7 +57,7 @@ def deleteObject(name):
         bpy.data.objects[name].select = True    # Blender 2.7x        
         # Delete the object
         bpy.ops.object.delete() 
-        print('deleted',name)
+        #print('deleted',name)
         return('FINISHED')
         
     if (ver < 99 and ver0 > 2):
