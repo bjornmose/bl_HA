@@ -297,33 +297,51 @@ class HA():
 
         sf = bpy.context.scene.frame_start
         ef = bpy.context.scene.frame_end
-        step = 1
-        norm = 2.*math.pi/( ef - sf)
+        #norm = 2.*math.pi*step/( ef - sf)
+        norm = 1./( ef - sf)
 
         rx = []
-        #ry = []
-        #rz = []
+        ry = []
+        rz = []
         fcu_x = obj.animation_data.action.fcurves[0]
-        #fcu_y = obj.animation_data.action.fcurves[1]
-        #fcu_z = obj.animation_data.action.fcurves[2]
-        for f in range(sf,ef,step):
+        fcu_y = obj.animation_data.action.fcurves[1]
+        fcu_z = obj.animation_data.action.fcurves[2]
+        for f in range(sf,ef):
             rx.append(fcu_x.evaluate(f))
-            #ry.append(fcu_y.evaluate(f))
-            #rz.append(fcu_z.evaluate(f))
+            ry.append(fcu_y.evaluate(f))
+            rz.append(fcu_z.evaluate(f))
         fftx = np.fft.rfft(rx)
+        ffty = np.fft.rfft(ry)
+        fftz = np.fft.rfft(rz)
         #fftx = np.fft.fft(rx)
         #print(fftx)
         real_x = []
         imag_x = []
+        real_y = []
+        imag_y = []
+        real_z = []
+        imag_z = []
         for c in fftx:
             real_x.append(c.real*norm)
             imag_x.append(c.imag*norm)
+        for c in ffty:
+            real_y.append(c.real*norm)
+            imag_y.append(c.imag*norm)
+        for c in fftz:
+            real_z.append(c.real*norm)
+            imag_z.append(c.imag*norm)
         
         print(real_x)
         print(imag_x)
 
         plot_spec(real_x,'SP_xr'+obj.name)
         plot_spec(imag_x,'SP_xi'+obj.name)
+
+        plot_spec(real_y,'SP_yr'+obj.name)
+        plot_spec(imag_y,'SP_yi'+obj.name)
+        
+        plot_spec(real_z,'SP_zr'+obj.name)
+        plot_spec(imag_z,'SP_zi'+obj.name)
         
 
     @staticmethod
