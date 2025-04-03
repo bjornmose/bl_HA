@@ -293,6 +293,40 @@ class HA():
             return False
     
     @staticmethod
+    def FFT(obj):
+
+        sf = bpy.context.scene.frame_start
+        ef = bpy.context.scene.frame_end
+        step = 1
+        norm = 2.*math.pi/( ef - sf)
+
+        rx = []
+        #ry = []
+        #rz = []
+        fcu_x = obj.animation_data.action.fcurves[0]
+        #fcu_y = obj.animation_data.action.fcurves[1]
+        #fcu_z = obj.animation_data.action.fcurves[2]
+        for f in range(sf,ef,step):
+            rx.append(fcu_x.evaluate(f))
+            #ry.append(fcu_y.evaluate(f))
+            #rz.append(fcu_z.evaluate(f))
+        fftx = np.fft.rfft(rx)
+        #fftx = np.fft.fft(rx)
+        #print(fftx)
+        real_x = []
+        imag_x = []
+        for c in fftx:
+            real_x.append(c.real*norm)
+            imag_x.append(c.imag*norm)
+        
+        print(real_x)
+        print(imag_x)
+
+        plot_spec(real_x,'SP_xr'+obj.name)
+        plot_spec(imag_x,'SP_xi'+obj.name)
+        
+
+    @staticmethod
     def generateHAprefix(name):
         for n in range(1,999):
             prefix = "HA{:}".format(n)
@@ -821,7 +855,25 @@ class op_HA_Integrate(Operator):
             plot_spec(specNow,'SP_'+obj.name)
         return {'FINISHED'}
         
+class op_HA_FFT(Operator):
+    """Makes watch option available"""
+    #bl_idname no upper Case allowed!
+    bl_idname = "object.op_ha_fft"
+    bl_label = "FFT"
 
+    @classmethod
+    def poll(cls, context):
+        obj = context.active_object
+        try: 
+            obj.animation_data.action.fcurves
+        except:
+            return False
+        return True
+
+    def execute(self, context):
+        obj = context.object
+        HA.FFT(obj)
+        return {'FINISHED'}
         
 
 
@@ -869,6 +921,9 @@ class HA_Panel(bpy.types.Panel):
                     row.label('NoWatcher') 
                     row.operator("object.op_enable_watch")
 
+            #row = layout.row()
+            #row.operator("object.op_ha_fft")
+
             row = layout.row()
             row.operator("object.op_osz2json")
             row.operator("object.op_json2osz")
@@ -905,6 +960,7 @@ class HA_Panel(bpy.types.Panel):
                 if (not HA.objIsHA(obj)):
                     row = layout.row()
                     row.operator('object.embedinhaoperator') 
+                    row.operator("object.op_ha_fft")
                 else:
                     row.label(text=(" Attached to " + obj.name + nHARoot))
 
@@ -922,7 +978,8 @@ _myclasses = (
               EmbedChildrenHAOperator,
               op_osz_unhook_hachildren,
               op_Print_Object_Spectrum,
-              op_Print_Chidren_Spectrum
+              op_Print_Chidren_Spectrum,
+              op_HA_FFT
               ) 
                 
 
