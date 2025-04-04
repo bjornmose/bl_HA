@@ -306,7 +306,7 @@ class HA():
         fcu_x = obj.animation_data.action.fcurves[0]
         fcu_y = obj.animation_data.action.fcurves[1]
         fcu_z = obj.animation_data.action.fcurves[2]
-        for f in range(sf,ef):
+        for f in range(sf,ef+1):
             rx.append(fcu_x.evaluate(f))
             ry.append(fcu_y.evaluate(f))
             rz.append(fcu_z.evaluate(f))
@@ -342,6 +342,83 @@ class HA():
         
         plot_spec(real_z,'SP_zr'+obj.name)
         plot_spec(imag_z,'SP_zi'+obj.name)
+
+    @staticmethod
+    def getFFTfromAction(obj,channel,sf,ef):
+        norm = 1./( ef - sf)
+        fcu = obj.animation_data.action.fcurves[channel]
+        #get sample for each frame
+        resampled = []
+        for f in range(sf,ef+1):
+            resampled.append(fcu.evaluate(f))
+        #apply FFT
+        ft = np.fft.rfft(resampled)
+        return ft
+    
+    @staticmethod
+    def setChildrenFromWatcherFFT(obj,sf,ef):
+        _HAOrder = 5
+        norm = 1./( ef - sf)
+
+        pp=obj.name.partition(nHARoot)
+        prefix = pp[0]
+
+        
+        watchname = obj[nIDHAWatch]
+        wobj = bpy.data.objects.get(watchname)
+        ftx = HA.getFFTfromAction(wobj,0,sf,ef)
+        fty = HA.getFFTfromAction(wobj,1,sf,ef)
+        ftz = HA.getFFTfromAction(wobj,2,sf,ef)
+        #apply bias
+        obj.location[0] = ftx[0].real * norm
+        obj.location[1] = fty[0].real * norm
+        obj.location[2] = ftz[0].real * norm
+        #remove drivers, just in case
+
+        for n in range(1,_HAOrder):
+            OName ="{:}{:}{:}".format(prefix,nHASin,n)
+            cso = bpy.data.objects.get(OName)
+            cso.driver_remove('location')
+            OName ="{:}{:}{:}".format(prefix,nHACos,n)
+            cso = bpy.data.objects.get(OName)
+            cso.driver_remove('location')
+        #Set positions
+        #some more magic with the numpy fft result
+        norm = 2. * norm
+        for n in range(1,_HAOrder):
+            OName ="{:}{:}{:}".format(prefix,nHASin,n)
+            cso = bpy.data.objects.get(OName)
+            cso.location[0] = ftx[n].imag * -norm
+            cso.location[1] = fty[n].imag * -norm
+            cso.location[2] = ftz[n].imag * -norm
+            #cso.location[0] = ftx[n].real * norm
+            OName ="{:}{:}{:}".format(prefix,nHACos,n)
+            cso = bpy.data.objects.get(OName)
+            cso.location[0] = ftx[n].real * norm
+            cso.location[1] = fty[n].real * norm
+            cso.location[2] = ftz[n].real * norm
+            #cso.location[0] = ftx[n].imag * norm
+
+    @staticmethod
+    def _hasWatchedActionToAnalyse(obj):
+        watchname = obj[nIDHAWatch]
+        wobj = bpy.data.objects.get(watchname)
+        if wobj is not None:
+            try: 
+                wobj.animation_data.action.fcurves
+            except:
+                return False
+        else:
+            return False
+        return True
+
+
+    
+
+
+
+        
+
         
 
     @staticmethod
@@ -874,7 +951,7 @@ class op_HA_Integrate(Operator):
         return {'FINISHED'}
         
 class op_HA_FFT(Operator):
-    """Makes watch option available"""
+    """Simple FFT Check"""
     #bl_idname no upper Case allowed!
     bl_idname = "object.op_ha_fft"
     bl_label = "FFT"
@@ -893,6 +970,27 @@ class op_HA_FFT(Operator):
         HA.FFT(obj)
         return {'FINISHED'}
         
+class op_HA_AppFFTtoChildren(Operator):
+    """Apply FFT of watched to Children"""
+    #bl_idname no upper Case allowed!
+    bl_idname = "object.op_ha_appfft2children"
+    bl_label = "Apply_FFT"
+
+    @classmethod
+    def poll(cls, context):
+        obj = context.active_object
+        try: 
+            return HA._hasWatchedActionToAnalyse(obj)
+        except:
+            return False
+        return True
+
+    def execute(self, context):
+        obj = context.object
+        sf = bpy.context.scene.frame_start
+        ef = bpy.context.scene.frame_end
+        HA.setChildrenFromWatcherFFT(obj,sf,ef)
+        return {'FINISHED'}
 
 
 class HA_Panel(bpy.types.Panel):
@@ -951,6 +1049,7 @@ class HA_Panel(bpy.types.Panel):
                 row.prop(sce, '["%s"]' % (nHA_Loops),text="Loops") 
                 row.operator("object.op_haintegate",text='Integate brute force')
                 row.operator("object.removehookdriveroperator",text='UnHookDrivers')
+                row.operator("object.op_ha_appfft2children")
             layout.label(text='Object')
             row = layout.row()
             row.prop(obj, '["%s"]' % (nAmplitude),text="Amp") 
@@ -979,6 +1078,7 @@ class HA_Panel(bpy.types.Panel):
                     row = layout.row()
                     row.operator('object.embedinhaoperator') 
                     row.operator("object.op_ha_fft")
+                    
                 else:
                     row.label(text=(" Attached to " + obj.name + nHARoot))
 
@@ -997,7 +1097,8 @@ _myclasses = (
               op_osz_unhook_hachildren,
               op_Print_Object_Spectrum,
               op_Print_Chidren_Spectrum,
-              op_HA_FFT
+              op_HA_FFT,
+              op_HA_AppFFTtoChildren
               ) 
                 
 
