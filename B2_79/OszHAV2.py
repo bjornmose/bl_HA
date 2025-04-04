@@ -357,13 +357,12 @@ class HA():
     
     @staticmethod
     def setChildrenFromWatcherFFT(obj,sf,ef):
-        _HAOrder = 5
         norm = 1./( ef - sf)
 
         pp=obj.name.partition(nHARoot)
         prefix = pp[0]
 
-        
+        _HAOrder = obj[nHAOrder]        
         watchname = obj[nIDHAWatch]
         wobj = bpy.data.objects.get(watchname)
         ftx = HA.getFFTfromAction(wobj,0,sf,ef)
@@ -375,7 +374,7 @@ class HA():
         obj.location[2] = ftz[0].real * norm
         #remove drivers, just in case
 
-        for n in range(1,_HAOrder):
+        for n in range(1,_HAOrder+1):
             OName ="{:}{:}{:}".format(prefix,nHASin,n)
             cso = bpy.data.objects.get(OName)
             cso.driver_remove('location')
@@ -385,7 +384,7 @@ class HA():
         #Set positions
         #some more magic with the numpy fft result
         norm = 2. * norm
-        for n in range(1,_HAOrder):
+        for n in range(1,_HAOrder+1):
             OName ="{:}{:}{:}".format(prefix,nHASin,n)
             cso = bpy.data.objects.get(OName)
             cso.location[0] = ftx[n].imag * -norm
@@ -814,6 +813,7 @@ class EmbedInHAOperator(bpy.types.Operator):
         pobj = GenHAControl(name,order)
         pobj.location = obj.location
         obj.parent = pobj
+        obj['bakestep'] = 1
         AddHAdriver(obj,name)
         return {'FINISHED'}
 
