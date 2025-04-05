@@ -148,7 +148,7 @@ def drv_HAAxisID(t,axis,ID):
         obj = bpy.data.objects.get(OName)
         a = obj.location[axis]
         val = val + a * cos(o*f)
-    return val
+    return val * amp
 
 
 def drv_cumHaFiDiff(axis,fu,n,ID,objorg,t,v):
@@ -372,8 +372,12 @@ class HA():
         obj.location[0] = ftx[0].real * norm
         obj.location[1] = fty[0].real * norm
         obj.location[2] = ftz[0].real * norm
-        #remove drivers, just in case
 
+        #remove drivers, just in case
+        #root
+        obj.driver_remove('location')
+
+        #children
         for n in range(1,_HAOrder+1):
             OName ="{:}{:}{:}".format(prefix,nHASin,n)
             cso = bpy.data.objects.get(OName)
@@ -381,6 +385,7 @@ class HA():
             OName ="{:}{:}{:}".format(prefix,nHACos,n)
             cso = bpy.data.objects.get(OName)
             cso.driver_remove('location')
+
         #Set positions
         #some more magic with the numpy fft result
         norm = 2. * norm
@@ -721,6 +726,11 @@ class EmbedChildrenHAOperator(bpy.types.Operator):
         except:
             frames = 40
             sce[nFrames] = frames
+        try:
+            damp = sce[nHA_Damp]
+        except:
+            damp = 1
+            sce[nHA_Damp] = damp
 
         return _copy_toHA_make_all_children_watch(obj,order,frames)
 
@@ -992,6 +1002,32 @@ class op_HA_AppFFTtoChildren(Operator):
         HA.setChildrenFromWatcherFFT(obj,sf,ef)
         return {'FINISHED'}
 
+class op_HA_AppFFTtoCoC(Operator):
+    """Apply FFT of watched to Children"""
+    #bl_idname no upper Case allowed!
+    bl_idname = "object.op_ha_appfft2coc"
+    bl_label = "Apply_FFT"
+
+    @classmethod
+    def poll(cls, context):
+        obj = context.active_object
+        try: 
+            return HA.objHasHACildren(obj)
+        except:
+            return False
+        return True
+
+    def execute(self, context):
+        obj = context.object
+        sf = bpy.context.scene.frame_start
+        ef = bpy.context.scene.frame_end
+        for child in obj.children:
+            if HA._objNameTaggedHA(child):
+                print('FFT',child.name)
+                HA.setChildrenFromWatcherFFT(child,sf,ef)
+        return {'FINISHED'}
+
+
 
 class HA_Panel(bpy.types.Panel):
     """Creates a Panel in the Object properties window"""
@@ -1069,6 +1105,8 @@ class HA_Panel(bpy.types.Panel):
                 row.operator("object.op_oszunhookhachildren",text='WatchDetach')
                 row = layout.row()
                 row.operator("object.op_psc",text='PSC')
+                row = layout.row()
+                row.operator("object.op_ha_appfft2coc")
             else:
                 row = layout.row()
                 if len(obj.children) > 0: 
@@ -1098,7 +1136,8 @@ _myclasses = (
               op_Print_Object_Spectrum,
               op_Print_Chidren_Spectrum,
               op_HA_FFT,
-              op_HA_AppFFTtoChildren
+              op_HA_AppFFTtoChildren,
+              op_HA_AppFFTtoCoC
               ) 
                 
 
