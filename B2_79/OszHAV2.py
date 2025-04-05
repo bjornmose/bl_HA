@@ -39,7 +39,6 @@ from BVT import *
 nIDHAWatch    = "IDHAWatch"
 nHA_Damp      = "HA_Damp"
 nHA_Loops     = "HA_Loops"
-nControlRoot = "ControlRoot"
 nHARoot      = "HARoot"
 nHAPlayBackOrder  = "HAPlayBackOrder"
 
@@ -52,13 +51,10 @@ nCSin2       = "CSin2"
 nCCos2       = "CCos2" 
 
 
-nFrames      = "Osz_Frames"
-nShift       = "Osz_Shift"
-nAmplitude   = "Osz_Amplitude"
-nStickyOrg   = "Osz_StickyOrg"
-nCopyFrom    = "Osz_CopyFrom"
-nCopyTo      = "Osz_CopyTo"
-nClock       = "Osz_Clock"
+nFrames      = "HA_Frames"
+nShift       = "HA_Shift"
+nAmplitude   = "HA_Amplitude"
+nClock       = "HA_Clock"
 
 nDefaultPeriod =2*2*3*5*7
 
@@ -70,6 +66,22 @@ def completescene():
         v = scene[nHAPlayBackOrder]
     except:
         scene[nHAPlayBackOrder] = 100
+    try:
+        v = scene[nHA_Damp]
+    except:
+        scene[nHA_Damp] = 2
+    try:
+        v = scene[nFrames]
+    except:
+        scene[nFrames] = nDefaultPeriod
+    try:
+        v = scene[nHAOrder]
+    except:
+        scene[nHAOrder] = 10
+    try:
+        v = scene[nHA_Loops]
+    except:
+        scene[nHA_Loops] = 1
 
 
 def _runCycleOnce():
@@ -82,15 +94,6 @@ def _runCycleOnce():
      print(msg,end="\r")
      bpy.context.scene.frame_set(actual)
      actual += 1
-
-
-def oszUniqueName(namein):
-        name = namein
-        pp=name.partition(nControlRoot)
-        if (len(pp[1])>0):
-            name = pp[0] + 'I'+nControlRoot
-        return(name)   
-
 
 
 def drv_HAAxisID(t,axis,ID):
@@ -284,13 +287,6 @@ class op_osz_unhook_ha(bpy.types.Operator):
  
 class HA():
 
-    def objIsOsz(obj):
-        to_name = obj.name + nControlRoot
-        Cobj = bpy.data.objects.get(to_name)
-        if (Cobj is not None ):
-            return True
-        else:
-            return False
     
     @staticmethod
     def FFT(obj):
@@ -330,9 +326,9 @@ class HA():
         for c in fftz:
             real_z.append(c.real*norm)
             imag_z.append(c.imag*norm)
-        
-        print(real_x)
-        print(imag_x)
+        #debug
+        #print(real_x)
+        #print(imag_x)
 
         plot_spec(real_x,'SP_xr'+obj.name)
         plot_spec(imag_x,'SP_xi'+obj.name)
@@ -716,29 +712,9 @@ class EmbedChildrenHAOperator(bpy.types.Operator):
     def execute(self, context):
         obj = context.object
         sce = bpy.context.scene        
-        try:
-            order = sce[nHAOrder]
-        except:
-            order = 5
-            sce[nHAOrder] = order
-        try:
-            frames = sce[nFrames]
-        except:
-            frames = 40
-            sce[nFrames] = frames
-        try:
-            damp = sce[nHA_Damp]
-        except:
-            damp = 1
-            sce[nHA_Damp] = damp
-
+        order = sce[nHAOrder]
+        frames = sce[nFrames]
         return _copy_toHA_make_all_children_watch(obj,order,frames)
-
-
-    
-
-
-
 
 
 class op_osz2Json(bpy.types.Operator, ExportHelper):
@@ -812,13 +788,7 @@ class EmbedInHAOperator(bpy.types.Operator):
     def execute(self, context):
         obj = context.object
         sce = bpy.context.scene
-
-        try:
-            order = sce[nHAOrder]
-        except:
-            order = 5
-            sce[nHAOrder] = order
-
+        order = sce[nHAOrder]
         name = obj.name
         pobj = GenHAControl(name,order)
         pobj.location = obj.location
@@ -880,14 +850,6 @@ class op_Enable_Watch(Operator):
     def execute(self, context):
         obj = context.object
         obj[nIDHAWatch] = '*None*'
-        #setup scene props on the fly
-        sce = bpy.context.scene
-        try:
-            v = sce[nHA_Damp]
-            v = sce[nHA_Loops]
-        except:
-            sce[nHA_Damp] = 1
-            sce[nHA_Loops] = 1
         return {'FINISHED'}
         
 class op_HA_Integrate(Operator):
@@ -904,14 +866,9 @@ class op_HA_Integrate(Operator):
         sce = bpy.context.scene
         obj = context.object
         errlimit = 0.000001
-        #sce[nHA_Damp] = 1.
         storePBO = sce[nHAPlayBackOrder]
         sce[nHAPlayBackOrder] = 0
-        try:
-          nof_loops = sce[nHA_Loops]
-        except:
-          nof_loops = 1
-          sce[nHA_Loops] = nof_loops
+        nof_loops = sce[nHA_Loops]
 
         if HA.objHasHACildren(obj):
             specPrev=HA.getChildrenSpectrumAverage(obj)
@@ -961,10 +918,10 @@ class op_HA_Integrate(Operator):
         return {'FINISHED'}
         
 class op_HA_FFT(Operator):
-    """Simple FFT Check"""
+    """Simple FFT check: plot raw Data"""
     #bl_idname no upper Case allowed!
     bl_idname = "object.op_ha_fft"
-    bl_label = "FFT"
+    bl_label = "Debug_FFT_action"
 
     @classmethod
     def poll(cls, context):
@@ -1073,13 +1030,10 @@ class HA_Panel(bpy.types.Panel):
                     row.label('NoWatcher') 
                     row.operator("object.op_enable_watch")
 
-            #row = layout.row()
-            #row.operator("object.op_ha_fft")
-
             row = layout.row()
             row.operator("object.op_osz2json")
             row.operator("object.op_json2osz")
-            row.operator("object.op_pso")
+            row.operator("object.op_pso",text="PlotSpecObj")
             row = layout.row()
             if watch :
                 row.prop(sce, '["%s"]' % (nHA_Loops),text="Loops") 
@@ -1093,24 +1047,24 @@ class HA_Panel(bpy.types.Panel):
             row.prop(obj, '["%s"]' % (nShift),text="Shift") 
         else:
             if HA.objHasHACildren(obj):
-                #row.prop(obj, '["%s"]' % (nAmplitude),text="Amp") 
                 row.prop(obj, '["%s"]' % (nFrames),text="Frames") 
-                row.prop(sce, '["%s"]' % (nHA_Damp),text="Damp") 
                 row.prop(sce, '["%s"]' % (nHAPlayBackOrder),text="PBO") 
-                #row.prop(obj, '["%s"]' % (nShift),text="Shift")
+                row = layout.row()
+                row.operator("object.op_ha_appfft2coc")
+                row = layout.row()
+                row.operator("object.op_psc",text='PlotSpecChil')
+
                 row = layout.row()
                 row.prop(sce, '["%s"]' % (nHA_Loops),text="Loops")
+                row.prop(sce, '["%s"]' % (nHA_Damp),text="Damp") 
                 row.operator("object.op_haintegate",text='Integate brute force')
                 row = layout.row()
                 row.operator("object.op_oszunhookhachildren",text='WatchDetach')
-                row = layout.row()
-                row.operator("object.op_psc",text='PSC')
-                row = layout.row()
-                row.operator("object.op_ha_appfft2coc")
+
             else:
                 row = layout.row()
+                row.prop(sce, '["%s"]' % (nHAOrder),text="HA_Order") 
                 if len(obj.children) > 0: 
-                    row.prop(sce, '["%s"]' % (nHAOrder),text="HAO") 
                     row.operator("object.embedchildrehaoperator") 
                 if (not HA.objIsHA(obj)):
                     row = layout.row()
