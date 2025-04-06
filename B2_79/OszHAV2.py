@@ -1049,6 +1049,7 @@ class HA_Panel(bpy.types.Panel):
         else:
             if HA.objHasHACildren(obj):
                 row.prop(obj, '["%s"]' % (nFrames),text="Frames") 
+                row.prop(sce, '["%s"]' % (nHAOrder),text="HAO") 
                 row.prop(sce, '["%s"]' % (nHAPlayBackOrder),text="PBO") 
                 row = layout.row()
                 row.operator("object.op_ha_appfft2coc")
