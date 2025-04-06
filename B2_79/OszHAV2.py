@@ -978,6 +978,7 @@ class op_HA_AppFFTtoCoC(Operator):
         obj = context.object
         sf = bpy.context.scene.frame_start
         ef = bpy.context.scene.frame_end
+        obj[nFrames] = ef - sf
         for child in obj.children:
             if HA._objNameTaggedHA(child):
                 print('FFT',child.name)
